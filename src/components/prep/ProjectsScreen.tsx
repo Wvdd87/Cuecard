@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../../lib/store';
 import type { Project } from '../../lib/types';
 import { Confirm } from './Confirm';
+import { TopNav } from './TopNav';
 
 /**
  * Projects as cards, per the mockup: an eyebrow with a status pip, the name
@@ -27,12 +28,13 @@ export function ProjectsScreen() {
 
   return (
     <div className="prep">
-      <div className="prep-bar">
-        <span className="wordmark" style={{ cursor: 'default' }}>
-          CUECARD
-        </span>
-        <span className="ctx">manual-cue show reference</span>
-      </div>
+      {/* Same shell as every other screen — the chrome never changes shape. */}
+      <TopNav
+        active="projects"
+        canTemplate={false}
+        canGoLive={false}
+        onNavigate={() => {}}
+      />
 
       <div className="prep-body">
         <div className="projects">

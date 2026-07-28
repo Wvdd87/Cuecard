@@ -167,7 +167,8 @@ function RowsBlock({
   const cols = BLOCKS[block].cols ?? [];
   const hasNote = cols.length > 2;
   const add = () => onChange([...rows, { id: uid(), a: '', b: '', c: '' }]);
-  const template = hasNote ? '86px 1fr 1fr 28px' : '86px 1fr 28px';
+  // Badge-proportioned: near-square against the 32px row height.
+  const template = hasNote ? '44px 1fr 1fr 28px' : '44px 1fr 28px';
 
   const patch = (i: number, key: 'a' | 'b' | 'c', v: string) =>
     onChange(rows.map((r, j) => (j === i ? { ...r, [key]: v } : r)));
@@ -183,17 +184,17 @@ function RowsBlock({
               className="editor-row"
               style={{ gridTemplateColumns: template }}
             >
-              {/* Camera cell carries the reserved camera colour, so the
-                  identity you read live is the identity you set here. */}
-              <div className="cam-cell">
-                <span
-                  className="cam-dot"
-                  style={{ background: color ?? 'var(--txt-dim)' }}
-                />
+              {/* The field carries the camera's locked hue, so the identity
+                  you set here is the identity you read live. */}
+              <div
+                className={color ? 'cam-cell assigned' : 'cam-cell'}
+                style={color ? { background: color } : undefined}
+              >
                 <input
                   value={row.a}
                   placeholder={cols[0]?.placeholder ?? 'CAM'}
                   onChange={(e) => patch(i, 'a', e.target.value)}
+                  aria-label="Camera"
                 />
               </div>
               <input

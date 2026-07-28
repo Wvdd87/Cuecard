@@ -1,7 +1,7 @@
 import type { BlockType, Song } from '../../lib/types';
 import { BLOCKS } from '../../lib/types';
 import { rowsOf, tagsOf, lineOf } from '../../lib/blocks';
-import { cameraColor } from '../../lib/camera';
+import { CameraBadge } from '../CameraBadge';
 
 /**
  * Live renderings of each block. Three renderings, not eleven: a block's
@@ -27,12 +27,10 @@ export function BlockContent({
             // Alternating band, applied to every cell of the row so it runs
             // unbroken across the columns.
             const band = i % 2 === 1 ? ' band' : '';
-            const color = cameraColor(r.a);
             return (
               <Fragmentish key={r.id}>
                 <div className={`num${band}`}>
-                  {color && <span className="cam-dot" style={{ background: color }} />}
-                  {r.a}
+                  <CameraBadge cam={r.a} />
                 </div>
                 <div className={`val${band}`}>{r.b}</div>
                 {threeCol && <div className={`aside${band}`}>{r.c}</div>}

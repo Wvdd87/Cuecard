@@ -9,9 +9,26 @@ import { Confirm } from './Confirm';
 import { LayoutEditor } from './LayoutEditor';
 
 /** Which editor, if any, is open over the playlist detail. */
-type Editing = { kind: 'template' } | { kind: 'song'; songId: string } | null;
+export type Editing =
+  | { kind: 'template' }
+  | { kind: 'song'; songId: string }
+  | null;
 
-export function PlaylistsTab({ project }: { project: Project }) {
+export function PlaylistsTab({
+  project,
+  selected,
+  setSelected,
+  editing,
+  setEditing,
+}: {
+  project: Project;
+  /** Selection and editor state live in PrepView, because the top nav
+      drives them too. */
+  selected: string | null;
+  setSelected: (id: string | null) => void;
+  editing: Editing;
+  setEditing: (e: Editing) => void;
+}) {
   const createPlaylist = useStore((s) => s.createPlaylist);
   const duplicatePlaylist = useStore((s) => s.duplicatePlaylist);
   const deletePlaylist = useStore((s) => s.deletePlaylist);
@@ -26,10 +43,6 @@ export function PlaylistsTab({ project }: { project: Project }) {
   const clearOverride = useStore((s) => s.clearOverride);
   const goLive = useStore((s) => s.goLive);
 
-  const [selected, setSelected] = useState<string | null>(
-    project.playlists[0]?.id ?? null,
-  );
-  const [editing, setEditing] = useState<Editing>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
 
   const playlist = project.playlists.find((pl) => pl.id === selected);

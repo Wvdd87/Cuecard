@@ -212,6 +212,14 @@ radios circular, amber fill on select.
 and **always carries a 2px amber underline at 0.6 opacity** as a calm system
 anchor. Layouts must scale 1440 → 768 without restructuring the DOM.
 
+`TopNav` is on *every* screen including the projects list — the shell never
+changes shape underneath the operator. Its five destinations are Projects,
+Songs, Playlists, Template and Live; items that need a project or a playlist
+are **disabled, not hidden**, in `--txt-low` (the kit's disabled ink). Because
+Template and Live are nav destinations rather than buttons buried in a screen,
+`PrepView` owns the section and editor state and passes it into `PlaylistsTab`
+— do not push that state back down.
+
 **Information display (kit §3).** Density is high by design; whitespace earns
 its place. **Modals carry a 2px `--primary` top border** and a `--hair3` edge
 against an opaque-leaning backdrop. Tooltips use condensed-caps payloads and
@@ -221,10 +229,15 @@ should pair with `aria-describedby`.
 reserved exclusively for camera sub-tracks and nothing else in the app may use
 them. **Each camera is locked to one hue and is never recoloured.** Anything
 that is not a camera stays quiet and typographic — greyscale — so lists read as
-one rhythm. The kit's camera badge is a two-digit zero-padded number in mono
-800 with tabular figures on the camera's hue; CueCard's lighter-weight
-equivalent is the identity dot from `cameraColor()` in `src/lib/camera.ts`,
-which is the only place the number→hue mapping may live. Tally red is the
+one rhythm. The camera badge is the kit's: a **square, two-digit zero-padded number in
+mono 800** with tabular figures, dark ink on the camera's hue —
+`src/components/CameraBadge.tsx`, with the number→hue mapping living only in
+`src/lib/camera.ts`. In the song editor the cam *field itself* carries the hue,
+so the identity you set is the identity you read. Sizes are `fluid` (em-based,
+so it scales with the row and with `--fit`) and `xs` (the kit's fixed 24px
+box). **Never name a size modifier after a layout class** — `.cam-badge.live`
+collided with the live view's `.live` root and silently gave every badge
+`display: grid`. Tally red is the
 loudest signal in the system and **only an on-air state may fill solid red**.
 
 **Feedback (kit §7).** Toasts stack top-right and escalate by severity; solid

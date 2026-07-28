@@ -40,9 +40,6 @@ input, textarea, select { font: inherit; }
 .row { display: flex; align-items: center; gap: var(--s-2); }
 .spacer { flex: 1; }
 
-/* Camera identity dot — the palette is reserved for cameras alone. */
-.cam-dot { width: 7px; height: 7px; border-radius: var(--radius-pill); flex: none; }
-
 /* ── Prep chrome ─────────────────────────────────────────────── */
 
 .prep { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
@@ -73,8 +70,10 @@ input, textarea, select { font: inherit; }
   color: var(--txt-mid); font-family: var(--cond); font-size: var(--fs-label);
   font-weight: var(--w-bold); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
 }
-.tab:hover { color: var(--txt-hi); }
-.tab[aria-selected='true'] { background: var(--surface2); border-color: var(--hair3); color: var(--txt-hi); }
+.tab:hover:not(:disabled) { color: var(--txt-hi); }
+.tab[aria-current='page'] { background: var(--surface2); border-color: var(--hair3); color: var(--txt-hi); }
+/* Same disabled ink as cf-btn: present but clearly inert. */
+.tab:disabled { color: var(--txt-low); cursor: not-allowed; }
 
 .prep-body { flex: 1; min-height: 0; overflow: hidden; }
 
@@ -154,9 +153,10 @@ input, textarea, select { font: inherit; }
   color: var(--txt-hi); font-family: var(--mono); font-size: var(--fs-mono);
   padding: 0 10px; outline: none;
 }
-.field::placeholder { color: var(--txt-low); font-family: var(--sans); }
+.field::placeholder { color: var(--txt-low); }
 .field:focus { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary-dim); }
 .field.sans { font-family: var(--sans); font-size: 13px; }
+.field.sans::placeholder { font-family: var(--sans); }
 
 .block-card { border: 1px solid var(--hair); background: var(--surface); margin-bottom: var(--s-3); }
 .block-card > header {
@@ -172,14 +172,22 @@ input, textarea, select { font: inherit; }
 
 .editor-rows { display: flex; flex-direction: column; gap: 6px; }
 .editor-row { display: grid; gap: 6px; align-items: center; }
+/* The cam field *is* the badge: typing a camera number fills the field with
+   that camera's locked hue, so identity is set and read in one place. */
 .editor-row .cam-cell {
-  display: flex; align-items: center; gap: 6px; height: 32px;
-  background: var(--surface2); border: 1px solid var(--hair2); padding: 0 var(--s-2);
+  display: flex; align-items: center; height: 32px;
+  background: var(--surface2); border: 1px solid var(--hair2);
 }
 .editor-row .cam-cell input {
-  width: 100%; min-width: 0; background: transparent; border: 0; outline: none;
-  font-family: var(--mono); font-size: 12px; color: var(--txt-hi); text-transform: uppercase;
+  width: 100%; min-width: 0; height: 100%; background: transparent; border: 0;
+  outline: none; text-align: center;
+  font-family: var(--mono); font-weight: var(--w-black); font-size: 13px;
+  letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+  color: var(--txt-mid); text-transform: uppercase;
 }
+.editor-row .cam-cell.assigned { border-color: transparent; }
+.editor-row .cam-cell.assigned input { color: var(--on-primary); }
+.editor-row .cam-cell input::placeholder { color: var(--txt-low); font-weight: var(--w-bold); }
 .editor-row .cell-input {
   height: 32px; background: var(--surface2); border: 1px solid var(--hair2);
   color: var(--txt-hi); font-family: var(--mono); font-size: 12px; padding: 0 var(--s-2);
@@ -470,8 +478,8 @@ input, textarea, select { font: inherit; }
 .codetable.cols2 { grid-template-columns: 70px 1fr; }
 .codetable.cols3 { grid-template-columns: 70px minmax(90px, max-content) 1fr; }
 .codetable .num {
-  display: flex; align-items: center; gap: 7px; justify-content: flex-end;
-  padding: 0.24em 0.5em; font-family: var(--mono); font-weight: var(--w-bold); color: var(--txt-hi);
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 0.24em 0.5em;
 }
 .codetable .val {
   padding: 0.24em 0.5em; font-family: var(--mono); font-weight: var(--w-semibold);
