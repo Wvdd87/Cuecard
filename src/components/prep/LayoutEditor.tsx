@@ -7,11 +7,11 @@ import {
   GRID_ROWS,
   blocksInGroup,
 } from '../../lib/types';
+import { GRID_VARS } from '../../lib/grid';
 import { clamp } from '../../lib/util';
 import { blockHasContent, unplacedBlocks } from '../../lib/blocks';
 import { BlockContent } from '../live/blocks';
 import { useFitToBox } from '../../lib/fit';
-import { GRID_VARS } from '../../lib/grid';
 
 /**
  * The template editor. One component, used for both the playlist's default
@@ -105,116 +105,110 @@ export function LayoutEditor({
   };
 
   return (
-    <div className="section" style={{ maxWidth: 1180 }}>
-      <div className="section-head">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 19, fontWeight: 700 }}>{heading}</div>
-          <div className="hint">{subheading}</div>
-        </div>
-        <button className="btn sm" onClick={onReset}>
-          {resetLabel}
-        </button>
-        <button className="btn primary" onClick={onDone}>
-          Done
-        </button>
-      </div>
-
-      {/* Block library, grouped. Small specific units, not big zones. */}
-      <div className="palette">
-        {BLOCK_GROUPS.map((g) => (
-          <div className="palette-group" key={g}>
-            <span className="label">{g}</span>
-            {blocksInGroup(g).map((b) => {
-              const on = placed.includes(b);
-              const empty = song ? !blockHasContent(song, b) : false;
-              return (
-                <button
-                  key={b}
-                  className={`chip${on ? ' on' : ''}${empty ? ' empty' : ''}`}
-                  onClick={() => toggle(b)}
-                  title={
-                    empty
-                      ? `${BLOCKS[b].hint} — this song has nothing in it yet`
-                      : BLOCKS[b].hint
-                  }
-                >
-                  {on ? '✓ ' : '+ '}
-                  {BLOCKS[b].label}
-                </button>
-              );
-            })}
+    <div className="template">
+      <div className="template-inner">
+        <div className="template-head">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="h">{heading}</div>
+            <div className="sub">{subheading}</div>
           </div>
-        ))}
-      </div>
+          <button className="cf-btn sm" onClick={onReset}>
+            {resetLabel}
+          </button>
+          <button className="cf-btn primary" onClick={onDone}>
+            Done
+          </button>
+        </div>
 
-      {missing.length > 0 && (
-        <div className="notice">
-          Not in this template:{' '}
-          <b>{missing.map((b) => BLOCKS[b].label).join(', ')}</b> — this song
-          has content there that will not be shown.
-        </div>
-      )}
-      {overlapping.length > 0 && (
-        <div className="notice">
-          Overlapping:{' '}
-          <b>{overlapping.map((b) => BLOCKS[b].label).join(', ')}</b> — these
-          will stack on top of each other live.
-        </div>
-      )}
-
-      <div className="layout-stage">
-        <div className="layout-mock-head">
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-dim)' }}>
-            {song?.title || 'Song title'}
-          </span>
-          <span className="label">Next ▸ fixed</span>
-        </div>
-        <div className="layout-mock-body">
-          <div className="layout-mock-rail">
-            <span className="label">Playlist rail</span>
-            <div>1 · fixed</div>
-            <div>2 · fixed</div>
-            <div>3 · fixed</div>
-          </div>
-          <div className="layout-mock-stage">
-            <div className="repo-band">
-              <span className="tagword" style={{ color: 'var(--text-faint)' }}>
-                REPOSITION BAND — FIXED
-              </span>
+        {/* Block library, grouped. Small specific units, not big zones. */}
+        <div className="palette">
+          {BLOCK_GROUPS.map((g) => (
+            <div className="palette-group" key={g}>
+              <span className="label-cap">{g}</span>
+              {blocksInGroup(g).map((b) => {
+                const on = placed.includes(b);
+                return (
+                  <button
+                    key={b}
+                    className={on ? 'chip on' : 'chip'}
+                    onClick={() => toggle(b)}
+                    title={BLOCKS[b].hint}
+                  >
+                    {on ? '✓ ' : ''}
+                    {BLOCKS[b].label}
+                  </button>
+                );
+              })}
             </div>
-            <div className="layout-canvas" ref={canvas} style={GRID_VARS}>
-              {layout.map((cell) => (
-                <div
-                  key={cell.block}
-                  className={
-                    dragging === cell.block
-                      ? 'layout-item dragging'
-                      : 'layout-item'
-                  }
-                  style={{
-                    gridColumn: `${cell.x + 1} / span ${cell.w}`,
-                    gridRow: `${cell.y + 1} / span ${cell.h}`,
-                  }}
-                  onPointerDown={(e) => beginDrag(e, cell, 'move')}
-                >
-                  <div className="label">{BLOCKS[cell.block].label}</div>
-                  <PreviewBody cell={cell} song={song} />
+          ))}
+        </div>
+
+        {missing.length > 0 && (
+          <div className="notice">
+            Not in this template:{' '}
+            <b>{missing.map((b) => BLOCKS[b].label).join(', ')}</b> — this song
+            has content there that will not be shown.
+          </div>
+        )}
+        {overlapping.length > 0 && (
+          <div className="notice">
+            Overlapping:{' '}
+            <b>{overlapping.map((b) => BLOCKS[b].label).join(', ')}</b> — these
+            will stack on top of each other live.
+          </div>
+        )}
+
+        <div className="layout-stage">
+          <div className="layout-mock-head">
+            <span className="song">{song?.title || 'Song title'}</span>
+            <span className="label-cap">Next ▸ fixed</span>
+          </div>
+          <div className="layout-mock-body">
+            <div className="layout-mock-rail">
+              <div className="label-cap" style={{ marginBottom: 6 }}>
+                Playlist rail
+              </div>
+              <div>1 · fixed</div>
+              <div>2 · fixed</div>
+              <div>3 · fixed</div>
+            </div>
+            <div className="layout-mock-stage">
+              <div className="layout-mock-band">
+                <span className="cap">Reposition band — fixed</span>
+              </div>
+              <div className="layout-canvas" ref={canvas} style={GRID_VARS}>
+                {layout.map((cell) => (
                   <div
-                    className="handle"
-                    onPointerDown={(e) => beginDrag(e, cell, 'resize')}
-                  />
-                </div>
-              ))}
+                    key={cell.block}
+                    className={
+                      dragging === cell.block
+                        ? 'layout-item dragging'
+                        : 'layout-item'
+                    }
+                    style={{
+                      gridColumn: `${cell.x + 1} / span ${cell.w}`,
+                      gridRow: `${cell.y + 1} / span ${cell.h}`,
+                    }}
+                    onPointerDown={(e) => beginDrag(e, cell, 'move')}
+                  >
+                    <div className="name">{BLOCKS[cell.block].label}</div>
+                    <PreviewBody cell={cell} song={song} />
+                    <div
+                      className="handle"
+                      onPointerDown={(e) => beginDrag(e, cell, 'resize')}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="hint" style={{ marginTop: 12 }}>
-        Drag to move, corner to resize. Content resizes to whatever room you
-        give it — shape the space, the text follows. Song title, next-song
-        slot, playlist rail and the reposition band are fixed and cannot be
-        moved; they are the parts you should find without looking.
+        <div className="sub" style={{ marginTop: 12 }}>
+          Drag to move, corner to resize. Content shrinks to fit whatever room
+          it's given — song title, next-song slot, rail and reposition band are
+          fixed and cannot move.
+        </div>
       </div>
     </div>
   );
@@ -227,7 +221,7 @@ function PreviewBody({ cell, song }: { cell: GridCell; song?: Song }) {
   );
   if (!song || !blockHasContent(song, cell.block)) return null;
   return (
-    <div className="layout-item-body" ref={ref}>
+    <div className="preview" ref={ref}>
       <BlockContent song={song} block={cell.block} />
     </div>
   );
@@ -238,25 +232,19 @@ function PreviewBody({ cell, song }: { cell: GridCell; song?: Song }) {
  *
  * The mock stage is a fraction of a real screen, so rendering type at full
  * live size inside it reports overflow that will not happen in the room.
- * Scaling the whole tier ramp by the same ratio as the stage means the fit
- * result the operator sees here is the fit result they get live.
+ * Scaling the whole ramp by the same ratio as the stage means the fit result
+ * the operator sees here is the fit result they get live.
  */
 function usePreviewScale(canvas: React.RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const el = canvas.current;
     if (!el) return;
     const apply = () => {
-      const railW =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue('--rail-w'),
-        ) || 240;
-      const pad =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue('--pad'),
-        ) || 16;
-      const liveStage = window.innerWidth - railW - pad * 2;
+      const cs = getComputedStyle(document.documentElement);
+      const railW = parseFloat(cs.getPropertyValue('--rail-w')) || 240;
+      const liveStage = window.innerWidth - railW - 36;
       const ratio = el.clientWidth / liveStage;
-      el.style.setProperty('--tier-scale', String(Math.min(1, ratio).toFixed(3)));
+      el.style.setProperty('--tier-scale', Math.min(1, ratio).toFixed(3));
     };
     apply();
     const ro = new ResizeObserver(apply);

@@ -25,15 +25,15 @@ export function PrepView() {
           onClick={() => setProjectId(null)}
           title="All projects"
         >
-          cuecard
+          CUECARD
         </button>
-        <span className="prep-title">{project.name}</span>
+        <div className="sep" />
 
         <div className="tabs" role="tablist">
           {(
             [
               ['playlists', 'Playlists'],
-              ['songs', `Bucket · ${project.songs.length}`],
+              ['songs', `Songs · ${project.songs.length}`],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -49,6 +49,7 @@ export function PrepView() {
         </div>
 
         <div className="spacer" />
+        <span className="ctx">{project.name}</span>
         <DisplayPopover />
       </div>
 

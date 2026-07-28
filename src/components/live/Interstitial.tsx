@@ -1,5 +1,4 @@
 import type { Song } from '../../lib/types';
-import { FIT_MAX } from '../../lib/fit';
 
 /**
  * Full-page camera-reposition card, shown between two songs.
@@ -22,17 +21,10 @@ export function Interstitial({
   onAdvance: () => void;
 }) {
   return (
-    <section
-      className="interstitial"
-      onClick={onAdvance}
-      role="presentation"
-      /* Tier 1 at the ceiling of its range — the same treatment the song
-         title gets, because here this *is* the headline. */
-      style={{ ['--fit' as string]: FIT_MAX }}
-    >
-      <div className="kicker t3">Reposition</div>
-      <div className="body t1">{from.repositionAfter}</div>
-      <div className="foot t3">
+    <section className="interstitial" onClick={onAdvance} role="presentation">
+      <div className="kicker">Reposition</div>
+      <div className="body">{from.repositionAfter}</div>
+      <div className="foot">
         <span>
           after <b>{from.title || 'Untitled'}</b>
         </span>
@@ -40,7 +32,7 @@ export function Interstitial({
         <span>
           then <b>{to.title || 'Untitled'}</b>
         </span>
-        <span style={{ marginLeft: 'auto' }}>space when set</span>
+        <span className="cue">space when set</span>
       </div>
     </section>
   );

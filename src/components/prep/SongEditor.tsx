@@ -3,6 +3,7 @@ import { useStore } from '../../lib/store';
 import type { BlockGroup, BlockRow, BlockType, Song } from '../../lib/types';
 import { BLOCKS, BLOCK_GROUPS, blocksInGroup } from '../../lib/types';
 import { rowsOf, tagsOf, lineOf } from '../../lib/blocks';
+import { cameraColor } from '../../lib/camera';
 import { uid } from '../../lib/util';
 import { deleteImage, fileToDataUrl, getImage, putImage } from '../../lib/images';
 
@@ -23,49 +24,47 @@ export function SongEditor({
     set({ blocks: { ...song.blocks, [block]: value } });
 
   return (
-    <div className="section" style={{ maxWidth: 800 }}>
+    <div className="section" style={{ maxWidth: 760 }}>
       <input
-        className="input bare"
-        style={{ fontSize: 26, fontWeight: 700, padding: '4px 8px', marginBottom: 6 }}
+        className="editor-title"
         placeholder="Song title"
         value={song.title}
         onChange={(e) => set({ title: e.target.value })}
       />
       <div className="row" style={{ marginBottom: 20 }}>
-        <span className="hint">
-          Used in {usedIn} playlist(s). Edits here apply everywhere.
+        <span className="cf-badge info">
+          Used in {usedIn} playlist{usedIn === 1 ? '' : 's'}
         </span>
+        <span className="help">Edits here update everywhere it's used.</span>
         <div className="spacer" />
-        <button className="btn ghost danger" onClick={onDelete}>
+        <button className="cf-btn sm danger" onClick={onDelete}>
           Delete song
         </button>
       </div>
 
       {/* Repositioning — not a block. A property of the transition. */}
       <div className="repo-editor">
-        <div className="label" style={{ marginBottom: 8 }}>
-          Camera repositioning
-        </div>
-        <div className="stack">
+        <div className="title">Camera repositioning</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
-            <div className="hint" style={{ marginBottom: 4 }}>
-              ● <b>During</b> this song — pinned in the live view's fixed
-              reposition band for the whole song.
+            <div className="lede">
+              ● <b>During</b> this song — pinned in the fixed reposition band,
+              whole song long.
             </div>
             <input
-              className="input"
+              className="field"
               placeholder="e.g. CAM 3 → downstage right after 2nd chorus"
               value={song.repositionDuring}
               onChange={(e) => set({ repositionDuring: e.target.value })}
             />
           </div>
           <div>
-            <div className="hint" style={{ marginBottom: 4, marginTop: 6 }}>
-              ▼ <b>After</b> this song — becomes a full-page card between this
-              song and the next. Cannot be skipped past.
+            <div className="lede">
+              ▼ <b>After</b> this song — full-page card before the next. Cannot
+              be skipped past.
             </div>
             <input
-              className="input"
+              className="field"
               placeholder="e.g. CAM 3 + 4 → pit, handheld"
               value={song.repositionAfter}
               onChange={(e) => set({ repositionAfter: e.target.value })}
@@ -99,7 +98,7 @@ function Group({
   return (
     <>
       <div className="group-head">
-        <span className="label">{group}</span>
+        <span className="eyebrow">{group}</span>
         <span className="rule" />
       </div>
       {blocksInGroup(group).map((block) => {
@@ -140,20 +139,16 @@ function Group({
 
 function BlockCard({
   block,
-  action,
   children,
 }: {
   block: BlockType;
-  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="block-card">
       <header>
-        <span className="label">{BLOCKS[block].label}</span>
+        <span className="name">{BLOCKS[block].label}</span>
         <span className="hint">{BLOCKS[block].hint}</span>
-        <div className="spacer" />
-        {action}
       </header>
       <div className="body">{children}</div>
     </div>
@@ -170,58 +165,72 @@ function RowsBlock({
   onChange: (rows: BlockRow[]) => void;
 }) {
   const cols = BLOCKS[block].cols ?? [];
+  const hasNote = cols.length > 2;
   const add = () => onChange([...rows, { id: uid(), a: '', b: '', c: '' }]);
-  const template =
-    cols.map((c) => (c.width ? `${c.width}px` : '1fr')).join(' ') + ' 28px';
+  const template = hasNote ? '86px 1fr 1fr 28px' : '86px 1fr 28px';
+
+  const patch = (i: number, key: 'a' | 'b' | 'c', v: string) =>
+    onChange(rows.map((r, j) => (j === i ? { ...r, [key]: v } : r)));
 
   return (
-    <BlockCard
-      block={block}
-      action={
-        <button className="btn sm" onClick={add}>
-          + row
-        </button>
-      }
-    >
-      {rows.length === 0 ? (
-        <EmptyNote />
-      ) : (
-        <div className="grid-rows">
-          {rows.map((row, i) => (
+    <BlockCard block={block}>
+      <div className="editor-rows">
+        {rows.map((row, i) => {
+          const color = cameraColor(row.a);
+          return (
             <div
               key={row.id}
-              className="grid-row"
+              className="editor-row"
               style={{ gridTemplateColumns: template }}
             >
-              {cols.map((c) => (
-                <input
-                  key={c.key}
-                  className={c.width ? 'input mono' : 'input mono'}
-                  placeholder={c.placeholder}
-                  value={row[c.key]}
-                  onChange={(e) =>
-                    onChange(
-                      rows.map((r, j) =>
-                        j === i ? { ...r, [c.key]: e.target.value } : r,
-                      ),
-                    )
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && i === rows.length - 1) add();
-                  }}
+              {/* Camera cell carries the reserved camera colour, so the
+                  identity you read live is the identity you set here. */}
+              <div className="cam-cell">
+                <span
+                  className="cam-dot"
+                  style={{ background: color ?? 'var(--txt-dim)' }}
                 />
-              ))}
+                <input
+                  value={row.a}
+                  placeholder={cols[0]?.placeholder ?? 'CAM'}
+                  onChange={(e) => patch(i, 'a', e.target.value)}
+                />
+              </div>
+              <input
+                className="cell-input"
+                placeholder={cols[1]?.placeholder ?? ''}
+                value={row.b}
+                onChange={(e) => patch(i, 'b', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && i === rows.length - 1) add();
+                }}
+              />
+              {hasNote && (
+                <input
+                  className="cell-input note"
+                  placeholder={cols[2]?.placeholder ?? ''}
+                  value={row.c}
+                  onChange={(e) => patch(i, 'c', e.target.value)}
+                />
+              )}
               <button
-                className="btn ghost"
+                className="icon-x"
                 aria-label="Remove row"
                 onClick={() => onChange(rows.filter((_, j) => j !== i))}
               >
                 ✕
               </button>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+        <button
+          className="cf-btn sm"
+          style={{ alignSelf: 'flex-start', marginTop: 2 }}
+          onClick={add}
+        >
+          + row
+        </button>
+      </div>
     </BlockCard>
   );
 }
@@ -245,11 +254,12 @@ function TagsBlock({
 
   return (
     <BlockCard block={block}>
-      <div className="tagfield">
+      <div className="tag-field">
         {tags.map((t, i) => (
-          <span className="tag" key={`${t}-${i}`}>
+          <span className="cf-tag" key={`${t}-${i}`}>
             {t}
             <button
+              className="cf-x"
               onClick={() => onChange(tags.filter((_, j) => j !== i))}
               aria-label={`Remove ${t}`}
             >
@@ -258,8 +268,7 @@ function TagsBlock({
           </span>
         ))}
         <input
-          className="input mono"
-          style={{ width: 150 }}
+          className="tag-input"
           placeholder="+ tag"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -291,25 +300,16 @@ function LineBlock({
   return (
     <BlockCard block={block}>
       <input
-        className="input"
+        className="field sans"
         maxLength={max}
         placeholder="One short line"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
-      <div className="hint" style={{ marginTop: 5 }}>
+      <div className="mono-sm" style={{ marginTop: 5 }}>
         {value.length}/{max}
-        {value.length === 0 && ' — empty blocks never appear in the live view'}
       </div>
     </BlockCard>
-  );
-}
-
-function EmptyNote() {
-  return (
-    <div className="hint">
-      Empty — this block will not appear in the live view at all.
-    </div>
   );
 }
 
@@ -346,45 +346,38 @@ function ImageBlock({
   return (
     <>
       <div className="group-head">
-        <span className="label">Reference</span>
+        <span className="eyebrow">Reference</span>
         <span className="rule" />
       </div>
-      <div className="block-card">
-        <header>
-          <span className="label">Reference image</span>
-          <span className="hint">
-            Screen content / framing. Prep only — never shown live.
-          </span>
-        </header>
-        <div className="body">
-          <div className="imagebox">
-            {url && <img src={url} alt="Reference" />}
-            <div className="row" style={{ justifyContent: 'center' }}>
-              <button className="btn sm" onClick={() => input.current?.click()}>
-                {url ? 'Replace' : 'Add image'}
-              </button>
-              {url && (
-                <button
-                  className="btn sm danger"
-                  onClick={async () => {
-                    await deleteImage(songId);
-                    setUrl(undefined);
-                    onFlag(false);
-                  }}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-            <input
-              ref={input}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => void pick(e.target.files?.[0])}
-            />
-          </div>
+      <div className="imagebox">
+        {url && <img src={url} alt="Reference" />}
+        <div className="cap">
+          screen content / camera framing · prep only, never shown live
         </div>
+        <div className="row" style={{ justifyContent: 'center' }}>
+          <button className="cf-btn sm" onClick={() => input.current?.click()}>
+            {url ? 'Replace' : 'Add image'}
+          </button>
+          {url && (
+            <button
+              className="cf-btn sm danger"
+              onClick={async () => {
+                await deleteImage(songId);
+                setUrl(undefined);
+                onFlag(false);
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => void pick(e.target.files?.[0])}
+        />
       </div>
     </>
   );

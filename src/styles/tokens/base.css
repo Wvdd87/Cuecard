@@ -1,0 +1,30 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueFlow — BASE
+   Element resets and root document defaults. Kept minimal:
+   tokens live in tokens/*, components carry their own styles.
+   ═══════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-feature-settings: 'ss01', 'ss02';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular, non-jittering figures wherever mono is used for values */
+.cf-tnum,
+[class*="tc"],
+[class*="mono"] { font-variant-numeric: tabular-nums; }
+
+/* Scrollbar polish — thin, hairline, dark */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--hair2); border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--hair3); }
+
+::selection { background: var(--primary-dim); color: var(--on-primary); }

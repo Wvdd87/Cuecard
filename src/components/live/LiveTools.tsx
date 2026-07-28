@@ -2,14 +2,10 @@ import { useStore } from '../../lib/store';
 import { toggleFullscreen } from '../../lib/screen';
 
 /**
- * The only chrome in the live view.
- *
- * There is deliberately no pagination widget here. Where you are is already
- * answered by the rail, and moving is answered by space and the arrow keys —
- * a ◀ ▶ 1/4 control in the corner duplicated both, read as an afterthought,
- * and invited the operator to fiddle with it mid-song. What remains is one
- * dim tier-3 button for the handful of settings that genuinely have to be
- * reachable during a show, and it stays shut until asked for.
+ * The only chrome in the live view, parked in the rail's foot — the one
+ * place a control cannot land on top of a block. There is deliberately no
+ * pagination widget: where you are is answered by the rail, and moving is
+ * answered by space and the arrow keys.
  */
 export function LiveTools({
   open,
@@ -30,11 +26,11 @@ export function LiveTools({
   const setDisplay = useStore((s) => s.setDisplay);
 
   return (
-    <div className="live-tools" onClick={(e) => e.stopPropagation()}>
+    <div onClick={(e) => e.stopPropagation()}>
       {open && (
-        <div className="popover">
+        <div className="live-tools-pop">
           <div>
-            <div className="t3" style={{ marginBottom: 6 }}>
+            <div className="slider-label">
               Brightness {Math.round(display.brightness * 100)}%
             </div>
             <input
@@ -43,13 +39,11 @@ export function LiveTools({
               max={1}
               step={0.01}
               value={display.brightness}
-              onChange={(e) =>
-                setDisplay({ brightness: Number(e.target.value) })
-              }
+              onChange={(e) => setDisplay({ brightness: Number(e.target.value) })}
             />
           </div>
           <div>
-            <div className="t3" style={{ marginBottom: 6 }}>
+            <div className="slider-label">
               Contrast {Math.round(display.contrast * 100)}%
             </div>
             <input
@@ -62,7 +56,7 @@ export function LiveTools({
             />
           </div>
 
-          <div className="dl">
+          <div className="keys">
             <span className="kbd">space</span>
             <span>next / confirm reposition</span>
             <span className="kbd">← →</span>
@@ -71,30 +65,36 @@ export function LiveTools({
             <span>dimmer / brighter</span>
             <span className="kbd">f</span>
             <span>fullscreen</span>
-            <span className="rail-mark">●</span>
+            <span className="mark">●</span>
             <span>move during this song</span>
-            <span className="rail-mark">▼</span>
+            <span className="mark">▼</span>
             <span>move after this song</span>
           </div>
 
-          {/* Touch fallback for back/forward, kept inside the panel rather
-              than on the glance surface. */}
-          <div className="row">
-            <button className="btn sm" onClick={onPrev}>
+          {/* Touch fallback for back/forward, kept off the glance surface. */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="pop-btn" onClick={onPrev}>
               ◀ Back
             </button>
-            <button className="btn sm" onClick={onNext}>
+            <button className="pop-btn" onClick={onNext}>
               Next ▶
             </button>
-            <div className="spacer" />
-            <button className="btn sm" onClick={toggleFullscreen}>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="pop-btn" onClick={toggleFullscreen}>
               Fullscreen
             </button>
           </div>
 
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="hint">{playlistName}</span>
-            <button className="btn sm danger" onClick={onExit}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <span className="help">{playlistName}</span>
+            <button className="leave-btn" onClick={onExit}>
               Leave live
             </button>
           </div>
@@ -105,7 +105,6 @@ export function LiveTools({
         className="tool-btn"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label="Live settings"
       >
         {open ? 'Close' : 'Setup'}
       </button>

@@ -1,0 +1,57 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueFlow — TYPOGRAPHY TOKENS
+   Three families, each with a job:
+   · IBM Plex Sans           — body copy, help text, descriptions
+   · IBM Plex Sans Condensed — headlines, labels, eyebrows, UI caps
+   · JetBrains Mono          — timecode, IDs, numeric values, code
+   Body never drops below 12px. Numeric values are tabular.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Families ── */
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif; /* @kind font */
+  --cond: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif; /* @kind font */
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; /* @kind font */
+
+  /* ── Weights ── */
+  --w-regular: 400; /* @kind font */
+  --w-medium:  500; /* @kind font */
+  --w-semibold:600; /* @kind font */
+  --w-bold:    700; /* @kind font */
+  --w-black:   800; /* @kind font */
+
+  /* ── Type scale (px) — hero 72 / h1 36 / h2 22 / h3 18 / body 16 / small 13 ── */
+  --fs-display: 72px; /* @kind font */
+  --fs-h1:      36px; /* @kind font */
+  --fs-h2:      22px; /* @kind font */
+  --fs-h3:      18px; /* @kind font */
+  --fs-body:    16px; /* @kind font */
+  --fs-body-sm: 13px; /* @kind font */
+  --fs-label:   11px; /* @kind font */
+  --fs-label-sm:10px; /* @kind font */
+  --fs-micro:   9px; /* @kind font */
+  --fs-mono:    12.5px; /* @kind font */
+  --fs-mono-sm: 11px; /* @kind font */
+  --fs-tc:      22px; /* @kind font */
+
+  /* ── Line heights ── */
+  --lh-tight:   0.92; /* @kind other */
+  --lh-heading: 1.1; /* @kind other */
+  --lh-body:    1.5; /* @kind other */
+  --lh-ui:      1.45; /* @kind other */
+
+  /* ── Letter-spacing ── */
+  --ls-display: -0.015em; /* @kind other */
+  --ls-heading: -0.005em; /* @kind other */
+  --ls-eyebrow: 0.22em; /* @kind other */
+  --ls-label:   0.14em; /* @kind other */
+  --ls-crumb:   0.12em; /* @kind other */
+  --ls-mono:    -0.01em; /* @kind other */
+
+  /* ── Semantic type aliases ── */
+  --font-display:  var(--cond); /* @kind font */
+  --font-heading:  var(--cond); /* @kind font */
+  --font-label:    var(--cond); /* @kind font */
+  --font-body:     var(--sans); /* @kind font */
+  --font-numeric:  var(--mono); /* @kind font */
+}

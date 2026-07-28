@@ -5,7 +5,7 @@ import { BLOCKS, layoutFor } from '../../lib/types';
 import { GRID_VARS } from '../../lib/grid';
 import { BlockContent } from './blocks';
 import { blockHasContent } from '../../lib/blocks';
-import { useFitToBox, FIT_MAX } from '../../lib/fit';
+import { useFitToBox } from '../../lib/fit';
 import { Interstitial } from './Interstitial';
 import { LiveTools } from './LiveTools';
 import { toggleFullscreen } from '../../lib/screen';
@@ -73,14 +73,31 @@ export function LiveView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [next, prev, jumpTo, nudgeBrightness]);
 
+  /* Empty playlist keeps the rail, so Setup stays reachable. */
   if (!ctx) {
     return (
-      <div className="empty" style={{ paddingTop: '25vh' }}>
-        This playlist has no songs to show.
-        <div style={{ marginTop: 16 }}>
-          <button className="btn" onClick={exitLive}>
-            Back to prep
-          </button>
+      <div className="live live-repo">
+        <nav className="live-rail" aria-label="Playlist">
+          <div className="rail-list">
+            <div className="help" style={{ padding: 16 }}>
+              No songs in this playlist yet.
+            </div>
+          </div>
+          <div className="rail-foot">
+            <button className="tool-btn" onClick={exitLive}>
+              Setup
+            </button>
+          </div>
+        </nav>
+        <div className="live-empty">
+          <div className="empty-state">
+            This playlist has no songs to show.
+            <div style={{ marginTop: 16 }}>
+              <button className="cf-btn" onClick={exitLive}>
+                Back to prep
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -113,28 +130,19 @@ export function LiveView() {
         <Interstitial from={song} to={upcoming} onAdvance={next} />
       ) : (
         <>
-          <header
-            className="live-head"
-            /* The title sits at the top of the fit range, so no block's
-               tier-1 value can ever be larger than the song name. */
-            style={{ ['--fit' as string]: FIT_MAX }}
-          >
-            <h1 className="live-title t1">{song.title || 'Untitled'}</h1>
+          <header className="live-head">
+            <h1 className="live-title">{song.title || 'Untitled'}</h1>
             <div className="live-next">
-              <span className="t3">Next</span>
+              <span className="label-cap">Next</span>
               {upcoming ? (
-                <div className="name t2">{upcoming.title || 'Untitled'}</div>
+                <div className="name">{upcoming.title || 'Untitled'}</div>
               ) : (
-                <div className="name t2 sub">end of set</div>
+                <div className="name end">End of set</div>
               )}
             </div>
           </header>
 
-          <div
-            className="live-stage"
-            onClick={next}
-            role="presentation"
-          >
+          <div className="live-stage" onClick={next} role="presentation">
             <RepoBand text={song.repositionDuring} />
             <SongGrid song={song} playlist={playlist} />
           </div>
@@ -170,27 +178,27 @@ function Rail({
   return (
     <nav className="live-rail" aria-label="Playlist">
       <div className="rail-list" ref={ref}>
-      {songs.map((s, i) => (
-        <button
-          key={`${s.id}-${i}`}
-          className={
-            'rail-item' +
-            (i < index ? ' past' : '') +
-            // During a reposition the rail still answers "where am I", but
-            // shows it as a transition rather than as sitting on the song.
-            (i === index && interstitial ? ' moving' : '')
-          }
-          aria-current={i === index ? 'true' : undefined}
-          onClick={() => onJump(i)}
-        >
-          <span className="n t3">{i + 1}</span>
-          <span className="t t2">{s.title || 'Untitled'}</span>
-          <span className="rail-mark t3">
-            {s.repositionDuring ? '●' : ''}
-            {s.repositionAfter ? '▼' : ''}
-          </span>
-        </button>
-      ))}
+        {songs.map((s, i) => (
+          <button
+            key={`${s.id}-${i}`}
+            className={
+              'rail-item' +
+              (i < index ? ' past' : '') +
+              // During a reposition the rail still answers "where am I", but
+              // shows it as a transition rather than as sitting on the song.
+              (i === index && interstitial ? ' moving' : '')
+            }
+            aria-current={i === index ? 'true' : undefined}
+            onClick={() => onJump(i)}
+          >
+            <span className="n">{i + 1}</span>
+            <span className="t">{s.title || 'Untitled'}</span>
+            <span className="marker">
+              {s.repositionDuring ? '●' : ''}
+              {s.repositionAfter ? '▼' : ''}
+            </span>
+          </button>
+        ))}
       </div>
       <div className="rail-foot">{children}</div>
     </nav>
@@ -208,8 +216,8 @@ function RepoBand({ text }: { text: string }) {
     <div className={on ? 'repo-band on' : 'repo-band'} aria-live="off">
       {on && (
         <>
-          <span className="tagword t3">Move</span>
-          <span className="txt t1">{text}</span>
+          <span className="tagword">Move</span>
+          <span className="txt">{text}</span>
         </>
       )}
     </div>
@@ -246,7 +254,7 @@ function Cell({ cell, song }: { cell: GridCell; song: Song }) {
         gridRow: `${cell.y + 1} / span ${cell.h}`,
       }}
     >
-      <div className="t3">{BLOCKS[cell.block].label}</div>
+      <div className="cell-label">{BLOCKS[cell.block].label}</div>
       <div className="cell-body" ref={ref}>
         <BlockContent song={song} block={cell.block} />
       </div>
@@ -293,4 +301,3 @@ function useKeepAwake(active: boolean) {
     };
   }, [active]);
 }
-

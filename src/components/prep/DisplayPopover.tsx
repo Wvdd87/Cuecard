@@ -9,7 +9,7 @@ export function DisplayPopover() {
 
   return (
     <div style={{ position: 'relative' }}>
-      <button className="btn ghost" onClick={() => setOpen(!open)}>
+      <button className="cf-btn sm ghost" onClick={() => setOpen(!open)}>
         Screen {Math.round(display.brightness * 100)}%
       </button>
       {open && (
@@ -19,11 +19,11 @@ export function DisplayPopover() {
             onClick={() => setOpen(false)}
           />
           <div
-            className="popover"
-            style={{ position: 'absolute', right: 0, top: '110%', zIndex: 11 }}
+            className="live-tools-pop"
+            style={{ position: 'absolute', right: 0, left: 'auto', top: '110%', bottom: 'auto', zIndex: 11 }}
           >
             <div>
-              <div className="label" style={{ marginBottom: 4 }}>
+              <div className="slider-label">
                 Brightness {Math.round(display.brightness * 100)}%
               </div>
               <input
@@ -32,13 +32,11 @@ export function DisplayPopover() {
                 max={1}
                 step={0.01}
                 value={display.brightness}
-                onChange={(e) =>
-                  setDisplay({ brightness: Number(e.target.value) })
-                }
+                onChange={(e) => setDisplay({ brightness: Number(e.target.value) })}
               />
             </div>
             <div>
-              <div className="label" style={{ marginBottom: 4 }}>
+              <div className="slider-label">
                 Contrast {Math.round(display.contrast * 100)}%
               </div>
               <input
@@ -47,13 +45,11 @@ export function DisplayPopover() {
                 max={1.7}
                 step={0.01}
                 value={display.contrast}
-                onChange={(e) =>
-                  setDisplay({ contrast: Number(e.target.value) })
-                }
+                onChange={(e) => setDisplay({ contrast: Number(e.target.value) })}
               />
             </div>
             <button
-              className="btn sm"
+              className="cf-btn sm"
               onClick={() => setDisplay({ brightness: 1, contrast: 1 })}
             >
               Reset

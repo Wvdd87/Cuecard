@@ -180,40 +180,28 @@ and the real fit logic, so what you shape is what you get in the room.
 
 ## Visual system
 
-Near-black `#000` — including the HTML background before any CSS loads, the
-manifest, and the browser theme colour, so launch emits nothing.
+CueCard implements the **CueFlow** design system — a dark broadcast-cockpit
+kit — imported from the Claude Design project *Cuecard UI mockups*. The mockup
+is the source of truth for anything visual.
 
-**Three type tiers, and every string is exactly one of them.** One size and
-weight per tier, everywhere, never chosen per block:
+- **Square corners throughout.** CueFlow is a hairline system; the only round
+  forms are functional dots.
+- **Three typefaces with jobs.** IBM Plex Sans Condensed for headings, labels
+  and UI caps; IBM Plex Sans for body; JetBrains Mono for every value, code and
+  number, tabular so figures never jitter.
+- **Eight camera hues, reserved.** `--cam1..8` belong to cameras and nothing
+  else, so a camera is identifiable by colour before you read the numeral.
+  Every cam row carries its dot, live and in the editor.
+- **Amber is standby/primary/focus** and carries camera repositioning; red is
+  destructive only.
+- **Strict 4px spacing grid**, control heights snapping to 28/36/44.
 
-| Tier | What it carries |
-|---|---|
-| 1 | the one headline value — song name, watch tags, a one-line block |
-| 2 | structural content — the rows of a table |
-| 3 | labels and meta — block names, row numbers, "NEXT". Never scales, so it is identical in every block on every song |
+Fonts are self-hosted rather than pulled from Google Fonts, because the app has
+to look right in a venue with no network — verified with the network cut: zero
+external requests and all three families still render.
 
-Secondary information is separated by **brightness and weight, never by a size
-of its own**. Monospace is used only where characters have to align in
-columns.
-
-**One accent, one meaning: a camera has to physically move.** Reposition
-markers in the rail, the during-song band, the reposition card. It is not used
-for selection, for the current song, for active controls or for warnings —
-those are all carried by brightness. An accent that means two things means
-nothing at a glance.
-
-**One container language:** the block is the container — a panel with a
-hairline and equal padding on all four sides. Content inside is never boxed
-again, with one deliberate exception: tag chips, because "SOLO GTR DRUMS" is
-ambiguous without a delimiter.
-
-**Tables look like tables** — fixed columns, so a description starts at the
-same x-position whether the value beside it is "P1" or "P7 lock", with
-alternating row bands rather than rules.
-
-The live view carries no pagination widget: position is the rail's job and
-movement is the keyboard's. The only chrome is one dim button in the rail's
-foot.
+Content that a block is too small to hold shrinks to fit; a block never grows
+to fit its content.
 
 In-app brightness (20–100%) and contrast, independent of the device's own
 control, since venues vary enormously.

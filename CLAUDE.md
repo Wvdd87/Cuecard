@@ -148,67 +148,60 @@ identical between a song with a during-move and one without.
 style**, not from hardcoded `repeat()` in CSS. Hardcoding them once already
 caused a silent bug where every row past the eighth collapsed to auto height.
 
-### The visual system — three tiers, one accent, one container
+### The visual system — CueFlow design system
 
-Defined in `src/styles.css`. It is a system, not a set of per-block choices;
-the failure mode it exists to prevent is every block quietly acquiring its own
-size, colour and box.
+The UI is an implementation of the **CueFlow** design system, imported from the
+Claude Design project *Cuecard UI mockups*
+(`b4410d53-36cd-4218-a90d-31d0ff470b97`). The mockup is the source of truth for
+anything visual; if code and mockup disagree, the mockup wins.
 
-**Three tiers, and every string is exactly one of them.** Applied as `.t1` /
-`.t2` / `.t3` classes in the markup, so the tier of any string is readable off
-the JSX and auditable in the DOM. Nothing in the live view sets its own
-`font-size`.
+`src/styles/` is the whole visual layer:
 
-| | What | Treatment |
-|---|---|---|
-| `.t1` | the one headline value — song name, watch tags, a one-line block | largest, brightest, sans, weight 700 |
-| `.t2` | structural content — the rows of a table | one medium size, mono (alignment) |
-| `.t3` | labels and meta — block names, row numbers, "NEXT" | 11px, uppercase, dim, **never scales** |
+```
+tokens/       colors · typography · spacing · effects · base  (verbatim from the DS)
+              fonts.css  (the one deviation — see below)
+components.css  cf-btn · cf-input · cf-tag · cf-badge · cf-card, ported from the DS bundle
+app.css         this app's layout, built only from tokens
+index.css       the entry point that orders the above
+```
 
-`.sub` is the only modifier: same tier, dimmer and lighter. Secondary
-information is separated by brightness, never by a size of its own. If
-something seems to need a fourth size, it should be split or merged instead.
+**No raw values below the token layer.** `app.css` and `components.css` may not
+introduce a colour, size or radius of their own — if something needs a value the
+system doesn't have, that's a design-system question. Two literals survive and
+both are deliberate: `#fff` inside the DS's own danger-button rule (ported
+verbatim), and `#0c0703` for the reposition card, which the mockup hardcodes
+because the system has no token for it.
 
-Mono is used *only* where characters must align in columns. That is the whole
-rule for font family.
+Key system facts that are easy to violate:
 
-**`--fit` must appear in a real property, never inside a `:root` token.** An
-unregistered custom property has its `var()` references substituted at the
-element that *declares* it, so `--t2-size: calc(... * var(--fit))` on `:root`
-resolves `--fit` against `:root`, where it is unset — and silently stops
-scaling everywhere. Hence `--t1-base` / `--t2-base` hold plain sizes and the
-tier classes write `calc(var(--t2-base) * var(--tier-scale) * var(--fit, 1))`.
-Same trap for `em`-based metrics: `.codetable` declares `--cell-y`/`--cell-x`
-on the table so they resolve against the table's font-size, not against each
-cell — the row-number cell is tier 3 and the value beside it is tier 2, so
-cell-declared padding would give one row two different heights.
+- **Corners are square.** `--radius` is `0px`. The only round forms are
+  functional dots — `--radius-pill` is for pips and camera dots, nothing else.
+- **Three families with jobs:** `--cond` (headings, labels, eyebrows, all UI
+  caps), `--sans` (body and help text), `--mono` (values, codes, IDs, numbers).
+- **The camera palette `--cam1..8` is reserved for cameras.** Nothing else in
+  the app may use those hues — that reservation is what lets the operator read
+  "camera 3" off a colour. `cameraColor()` in `src/lib/camera.ts` is the only
+  place the mapping lives; non-numeric cam fields get no dot rather than an
+  arbitrary colour.
+- **Amber `--primary` is standby/primary/focus**, and in this app it also
+  carries camera repositioning (markers, band, card). Red `--danger` is
+  destructive only.
+- **Spacing is a strict 4px grid** (`--s-*`), control heights snap to 28/36/44
+  (`--ctrl-sm|md|lg`).
 
-**`--tier-scale`** is 1 live, and in the template editor is the ratio between
-the preview stage and the real one, so the preview is a true scale model:
-what fits there fits in the room.
+**Fonts are self-hosted, and that is the one intentional deviation.** The DS's
+`tokens/fonts.css` `@import`s Google Fonts; ours `@font-face`s the same latin
+subsets from `/fonts`. A remote import would put a network round-trip in the
+boot path and silently fall back to system-ui in a venue with no wifi — exactly
+the failure the reliability spec rules out. Verified: zero external requests,
+and all three families still render with the network cut. Add a weight by
+downloading the subset into `public/fonts` and adding a `@font-face`, never by
+restoring the `@import`.
 
-**One accent, one meaning: a camera has to physically move.** Reposition
-markers in the rail, the during-song band, the reposition card, and the
-reposition fields in prep. Nothing else, in either view — not "selected", not
-"active", not "warning". Position in the rail, primary buttons, active tabs
-and editor warnings are all carried by brightness and weight instead. The one
-exception is `--danger`, on destructive confirmation in prep only.
-
-**One container language: the block is the container** — a panel with a
-hairline and the same padding on all four sides. Content inside a block is
-never boxed again. The single deliberate exception is tag chips (Watch, Solos,
-Hits), because "SOLO GTR DRUMS" is ambiguous without a delimiter, so the box
-is doing real work. It applies to all three tag blocks and to nothing else.
-
-**Tables** use two or three columns depending on whether the block has a
-description, sized to content (`width: max-content`) so row banding stops at
-the table rather than running out into empty space. Banding, not rules: a rule
-has to span the full row and ends up drawn past the last column.
-
-**There is no pagination control in the live view.** Position is answered by
-the rail and movement by space/arrows; a `◀ ▶ 1/4` widget duplicated both and
-invited fiddling mid-song. The only chrome is one tier-3 button in the rail's
-foot — the one place a control cannot land on top of a block.
+Live-view type carries `* var(--tier-scale, 1) * var(--fit, 1)`. Both are
+behaviour, not style: `--fit` shrinks content a block is too small to hold, and
+`--tier-scale` makes the template editor's preview a true scale model of the
+stage. See the fit note below before adding a live text style.
 
 ### Persistence — split on purpose
 
@@ -242,18 +235,19 @@ that's prep-only.
 ## Conventions worth knowing
 
 **No bright surfaces, anywhere, ever.** Not on transitions, not on the
-interstitial, not on load. The black background is set in `index.html`'s inline
-`<style>` (before any CSS loads), in the manifest, and in `theme-color`. The
-interstitial is warm near-black with hazard hatching — "distinct", not "a white
-card in a dark room". One accent (amber `--accent`), which reads warm at low
-luminance.
+interstitial, not on load. `--bg` (`#07070a`) is repeated in `index.html`'s
+inline `<style>` (before any CSS loads), in the manifest and in `theme-color`,
+so the first painted frame is already the system's base. The interstitial is
+warm near-black with hazard hatching — "distinct", not "a white card in a dark
+room".
 
 **Brightness/contrast** is a CSS `filter` on `.app`, driven by CSS vars from
 the store. Avoid `position: fixed` inside it unless you want it positioned
 relative to the filtered root.
 
-**Live typography** is monospace, uppercase-ish, tabular. Short codes over
-prose. See the `--fit` note above before adding any live text style.
+**Live typography** follows the mockup per block kind: rows are `--mono` so
+columns align, tags and one-line blocks are `--cond` 700, labels are `--cond`
+caps. See the `--fit` note above before adding any live text style.
 
 **jsPDF's built-in fonts are Latin-1 only.** `→`, `—`, `·` and friends render
 as mojibake, not as nothing. Everything reaching a PDF page goes through

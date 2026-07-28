@@ -1,0 +1,31 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueFlow — EFFECTS TOKENS
+   Shadows are used sparingly and only for floating layers (menus,
+   modals, toasts) against the dark canvas. No decorative glows
+   except functional signals (tally ring, playhead).
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Focus ring — 2px bg gap + 2px amber outline (WCAG AA) ── */
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+
+  /* ── Elevation shadows (floating layers only) ── */
+  --shadow-menu:   0 12px 32px rgba(0,0,0,0.60);
+  --shadow-pop:    0 16px 40px rgba(0,0,0,0.70);
+  --shadow-modal:  0 30px 80px rgba(0,0,0,0.70);
+  --shadow-toast:  0 12px 32px rgba(0,0,0,0.55);
+
+  /* ── Functional signal glows (never decorative) ── */
+  --glow-tally:    0 0 18px rgba(255,40,72,0.55);
+  --glow-playhead: 0 0 8px rgba(240,168,56,0.80);
+
+  /* ── Motion ── */
+  --ease:        linear; /* @kind other */
+  --ease-smooth: cubic-bezier(0.4,0,0.2,1); /* @kind other */
+  --dur-fast:    80ms; /* @kind other */
+  --dur-med:     120ms; /* @kind other */
+  --dur-slow:    200ms; /* @kind other */
+
+  /* ── Backdrop ── */
+  --backdrop: rgba(5,5,7,0.85);
+}

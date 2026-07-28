@@ -45,34 +45,34 @@ export function PlaylistsTab({ project }: { project: Project }) {
     <div className="pane">
       <div className="side">
         <div className="side-head">
-          <span className="label" style={{ flex: 1 }}>
+          <span className="eyebrow" style={{ flex: 1 }}>
             Playlists
           </span>
           <button
-            className="btn primary sm"
+            className="cf-btn primary sm"
             onClick={() => select(createPlaylist(project.id, 'New show'))}
           >
             + New
           </button>
         </div>
         {project.playlists.length === 0 ? (
-          <div className="empty">
+          <div className="empty-state">
             A playlist is a dated, ordered selection of bucket songs, plus the
             live-view template every song in it uses.
           </div>
         ) : (
-          <ul className="list">
+          <ul style={{ listStyle: 'none' }}>
             {[...project.playlists]
               .sort((a, b) => (a.date < b.date ? 1 : -1))
               .map((pl) => (
                 <li key={pl.id}>
                   <button
-                    className="list-item"
+                    className="side-row"
                     aria-current={pl.id === selected ? 'true' : undefined}
                     onClick={() => select(pl.id)}
                   >
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <div>{pl.name}</div>
+                      <div className="t">{pl.name}</div>
                       <div className="sub">
                         {formatDate(pl.date)} · {pl.songIds.length} songs
                         {Object.keys(pl.overrides).length > 0 &&
@@ -88,7 +88,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
 
       <div className="main">
         {!playlist ? (
-          <div className="empty">Select or create a playlist.</div>
+          <div className="empty-state">Select or create a playlist.</div>
         ) : editing?.kind === 'template' ? (
           <LayoutEditor
             layout={playlist.layout}
@@ -103,7 +103,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
         ) : editing?.kind === 'song' ? (
           (() => {
             const s = project.songs.find((x) => x.id === editing.songId);
-            if (!s) return <div className="empty">Song not found.</div>;
+            if (!s) return <div className="empty-state">Song not found.</div>;
             return (
               <LayoutEditor
                 layout={layoutFor(playlist, s.id)}
@@ -121,47 +121,44 @@ export function PlaylistsTab({ project }: { project: Project }) {
             );
           })()
         ) : (
-          <div className="section" style={{ maxWidth: 940 }}>
+          <div className="section" style={{ maxWidth: 900 }}>
             <div className="row" style={{ marginBottom: 4 }}>
               <input
-                className="input bare"
-                style={{ fontSize: 24, fontWeight: 700, padding: '4px 8px' }}
+                className="playlist-title"
                 value={playlist.name}
                 onChange={(e) =>
-                  updatePlaylist(project.id, playlist.id, {
-                    name: e.target.value,
-                  })
+                  updatePlaylist(project.id, playlist.id, { name: e.target.value })
                 }
               />
               <input
-                className="input"
+                className="date-field"
                 type="date"
-                style={{ width: 160 }}
                 value={playlist.date}
                 onChange={(e) =>
-                  updatePlaylist(project.id, playlist.id, {
-                    date: e.target.value,
-                  })
+                  updatePlaylist(project.id, playlist.id, { date: e.target.value })
                 }
               />
             </div>
 
-            <div className="row" style={{ marginBottom: 22, flexWrap: 'wrap' }}>
+            <div
+              className="row"
+              style={{ marginBottom: 24, flexWrap: 'wrap' }}
+            >
               <button
-                className="btn primary"
+                className="cf-btn primary"
                 disabled={songs.length === 0}
                 onClick={() => goLive(project.id, playlist.id, 0)}
               >
                 ▶ Go live
               </button>
               <button
-                className="btn"
+                className="cf-btn"
                 onClick={() => setEditing({ kind: 'template' })}
               >
                 Edit template
               </button>
               <button
-                className="btn"
+                className="cf-btn"
                 onClick={() => {
                   const id = duplicatePlaylist(project.id, playlist.id);
                   if (id) select(id);
@@ -170,7 +167,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
                 Duplicate
               </button>
               <button
-                className="btn"
+                className="cf-btn"
                 disabled={songs.length === 0}
                 onClick={() => void exportPlaylistPdf(project, playlist)}
               >
@@ -178,23 +175,30 @@ export function PlaylistsTab({ project }: { project: Project }) {
               </button>
               <div className="spacer" />
               <button
-                className="btn ghost danger"
+                className="cf-btn danger"
                 onClick={() => setConfirming(playlist.id)}
               >
                 Delete playlist
               </button>
             </div>
 
-            <div className="section-head">
-              <span className="label">Running order</span>
-              <span className="hint">
-                {songs.length} songs ·{' '}
-                {playlist.layout.length} blocks in the default template
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              <span className="eyebrow">Running order</span>
+              <span className="help">
+                {songs.length} songs · {playlist.layout.length} blocks in the
+                default template
               </span>
             </div>
 
             {songs.length === 0 ? (
-              <div className="hint" style={{ marginBottom: 20 }}>
+              <div className="help" style={{ marginBottom: 20 }}>
                 Nothing in this playlist yet — add songs from the bucket below.
               </div>
             ) : (
@@ -209,22 +213,14 @@ export function PlaylistsTab({ project }: { project: Project }) {
                     <li key={`${s.id}-${i}`}>
                       <div className="order-row">
                         <span className="n">{i + 1}</span>
-                        <span className="t">
-                          {s.title || 'Untitled'}
-                          {(s.repositionDuring || s.repositionAfter) && (
-                            <span
-                              className="rail-mark"
-                              style={{ marginLeft: 8 }}
-                              title="camera repositioning"
-                            >
-                              {s.repositionDuring ? '●' : ''}
-                              {s.repositionAfter ? '▼' : ''}
-                            </span>
-                          )}
+                        <span className="t">{s.title || 'Untitled'}</span>
+                        <span className="marker">
+                          {s.repositionDuring ? '●' : ''}
+                          {s.repositionAfter ? '▼' : ''}
                         </span>
 
                         <button
-                          className={custom ? 'chip on' : 'chip'}
+                          className={custom ? 'chip sm on' : 'chip sm'}
                           onClick={() => {
                             startOverride(project.id, playlist.id, s.id);
                             setEditing({ kind: 'song', songId: s.id });
@@ -239,7 +235,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
                         </button>
 
                         <button
-                          className="btn ghost sm"
+                          className="mini-btn"
                           disabled={i === 0}
                           onClick={() =>
                             movePlaylistSong(project.id, playlist.id, i, i - 1)
@@ -249,7 +245,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
                           ↑
                         </button>
                         <button
-                          className="btn ghost sm"
+                          className="mini-btn"
                           disabled={i === songs.length - 1}
                           onClick={() =>
                             movePlaylistSong(project.id, playlist.id, i, i + 1)
@@ -259,7 +255,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
                           ↓
                         </button>
                         <button
-                          className="btn ghost sm danger"
+                          className="mini-btn danger"
                           onClick={() =>
                             removeFromPlaylist(project.id, playlist.id, i)
                           }
@@ -282,19 +278,26 @@ export function PlaylistsTab({ project }: { project: Project }) {
               </ul>
             )}
 
-            <div className="section-head" style={{ marginTop: 26 }}>
-              <span className="label">Add from bucket</span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 10,
+                margin: '24px 0 10px',
+              }}
+            >
+              <span className="eyebrow">Add from bucket</span>
             </div>
             {project.songs.length === 0 ? (
-              <div className="hint">
-                The bucket is empty. Add songs in the Bucket tab first.
+              <div className="help">
+                The bucket is empty. Add songs in the Songs tab first.
               </div>
             ) : (
-              <div className="tagfield">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {project.songs.map((s) => (
                   <button
                     key={s.id}
-                    className="btn sm"
+                    className="add-bucket-btn"
                     onClick={() => addToPlaylist(project.id, playlist.id, s.id)}
                   >
                     + {s.title || 'Untitled'}
@@ -302,7 +305,7 @@ export function PlaylistsTab({ project }: { project: Project }) {
                 ))}
               </div>
             )}
-            <div className="hint" style={{ marginTop: 10 }}>
+            <div className="help" style={{ marginTop: 10 }}>
               A playlist references bucket songs — it never copies them. The
               same song can appear twice (encore reprise) and stays in sync.
             </div>

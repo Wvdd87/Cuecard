@@ -27,49 +27,47 @@ export function SongsTab({ project }: { project: Project }) {
     <div className="pane">
       <div className="side">
         <div className="side-head">
-          <input
-            className="input"
-            placeholder="Filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
+          <div className="cf-input sm" style={{ flex: 1, minWidth: 0 }}>
+            <input
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
           <button
-            className="btn primary"
+            className="cf-btn primary icon sm"
             onClick={() => setSelected(addSong(project.id))}
+            aria-label="New song"
           >
             +
           </button>
         </div>
 
         {visible.length === 0 ? (
-          <div className="empty">
-            The bucket holds every song you have ever entered for this
-            project. Playlists pull from it.
+          <div className="empty-state">
+            The bucket holds every song you have ever entered for this project.
+            Playlists pull from it.
           </div>
         ) : (
-          <ul className="list">
+          <ul style={{ listStyle: 'none' }}>
             {visible.map((s) => (
               <li key={s.id}>
                 <button
-                  className="list-item"
+                  className="side-row"
                   aria-current={s.id === selected ? 'true' : undefined}
                   onClick={() => setSelected(s.id)}
                 >
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {s.title || <em style={{ opacity: 0.5 }}>Untitled</em>}
-                    </div>
+                    <div className="t">{s.title || 'Untitled'}</div>
                     <div className="sub">
-                      {songIsEmpty(s) ? 'empty' : `in ${usedIn(s.id)} playlist(s)`}
-                      {s.repositionDuring ? ' · ● move during' : ''}
-                      {s.repositionAfter ? ' · ▼ move after' : ''}
+                      {songIsEmpty(s)
+                        ? 'empty'
+                        : `in ${usedIn(s.id)} playlist${usedIn(s.id) === 1 ? '' : 's'}`}
                     </div>
+                  </span>
+                  <span className="marker">
+                    {s.repositionDuring ? '●' : ''}
+                    {s.repositionAfter ? '▼' : ''}
                   </span>
                 </button>
               </li>
@@ -88,7 +86,7 @@ export function SongsTab({ project }: { project: Project }) {
             onDelete={() => setConfirming(song.id)}
           />
         ) : (
-          <div className="empty">Select or add a song.</div>
+          <div className="empty-state">Select or add a song.</div>
         )}
       </div>
 

@@ -19,8 +19,8 @@ export default defineConfig({
         // Fullscreen + black, so launching it in a dark room emits nothing.
         display: 'fullscreen',
         orientation: 'landscape',
-        background_color: '#000000',
-        theme_color: '#000000',
+        background_color: '#07070a',
+        theme_color: '#07070a',
         start_url: '/',
         icons: [
           {

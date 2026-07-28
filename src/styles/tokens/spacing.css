@@ -1,0 +1,35 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueFlow — SPACING & SIZING TOKENS
+   Strict 4-px grid. All padding, margin and component heights
+   resolve to a multiple of 4. Control heights snap to 28/36/44.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Spacing scale (4-px grid) ── */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  /* ── Control heights ── */
+  --ctrl-sm: 28px;
+  --ctrl-md: 36px;
+  --ctrl-lg: 44px;
+
+  /* ── Fixed chrome heights ── */
+  --navbar-h:  56px;
+  --rail-w:    240px;
+
+  /* ── Radius ── */
+  /* CueFlow is a hairline system: corners are square everywhere.
+     The only round forms are functional dots (radio, status pips,
+     camera-preview rings). */
+  --radius:      0px;
+  --radius-pill: 999px;  /* used ONLY for dots / pips */
+}

@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../../lib/store';
-import { formatDate } from '../../lib/util';
+import type { Project } from '../../lib/types';
 import { Confirm } from './Confirm';
 
+/**
+ * Projects as cards, per the mockup: an eyebrow with a status pip, the name
+ * as the card title, and the two numbers that actually matter — how many
+ * songs are in the bucket and how many playlists are built from them.
+ */
 export function ProjectsScreen() {
   const projects = useStore((s) => s.projects);
   const createProject = useStore((s) => s.createProject);
@@ -24,70 +29,63 @@ export function ProjectsScreen() {
     <div className="prep">
       <div className="prep-bar">
         <span className="wordmark" style={{ cursor: 'default' }}>
-          cuecard
+          CUECARD
         </span>
-        <span className="hint">manual-cue show reference</span>
+        <span className="ctx">manual-cue show reference</span>
       </div>
 
       <div className="prep-body">
-        <div className="section">
-          <div className="section-head">
-            <span className="label">Projects</span>
-          </div>
-          <div className="hint" style={{ marginBottom: 18 }}>
-            One project per artist or show. It holds the bucket of every song
-            you have ever entered for them, and every playlist built from it.
-          </div>
+        <div className="projects">
+          <div className="projects-inner">
+            <div className="eyebrow">Projects</div>
+            <p className="projects-intro">
+              One project per artist or show. Each holds a bucket of every song
+              ever built, and every playlist assembled from it.
+            </p>
 
-          <div className="row" style={{ marginBottom: 22 }}>
-            <input
-              className="input"
-              placeholder="Artist / show name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && create()}
-              style={{ maxWidth: 340 }}
-            />
-            <button className="btn primary" onClick={create} disabled={!name.trim()}>
-              New project
-            </button>
-          </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-end',
+                marginBottom: 28,
+              }}
+            >
+              <div className="cf-fld" style={{ minWidth: 280, maxWidth: 280 }}>
+                <span className="cf-fld-lbl">Artist / show</span>
+                <div className="cf-input">
+                  <input
+                    placeholder="e.g. Nova Wolf"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && create()}
+                  />
+                </div>
+              </div>
+              <button
+                className="cf-btn primary"
+                onClick={create}
+                disabled={!name.trim()}
+              >
+                + New project
+              </button>
+            </div>
 
-          {projects.length === 0 ? (
-            <div className="empty">No projects yet.</div>
-          ) : (
-            <ul className="list" style={{ border: '1px solid var(--line)', borderRadius: 4 }}>
-              {projects.map((p) => {
-                const latest = [...p.playlists].sort((a, b) =>
-                  a.date < b.date ? 1 : -1,
-                )[0];
-                return (
-                  <li key={p.id} style={{ display: 'flex' }}>
-                    <button
-                      className="list-item"
-                      onClick={() => setProjectId(p.id)}
-                    >
-                      <span style={{ flex: 1 }}>
-                        <div>{p.name}</div>
-                        <div className="sub">
-                          {p.songs.length} songs · {p.playlists.length} playlists
-                          {latest ? ` · latest ${formatDate(latest.date)}` : ''}
-                        </div>
-                      </span>
-                    </button>
-                    <button
-                      className="btn ghost danger"
-                      style={{ borderBottom: '1px solid var(--line)', borderRadius: 0 }}
-                      onClick={() => setConfirming(p.id)}
-                      aria-label={`Delete ${p.name}`}
-                    >
-                      Delete
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+            {projects.length === 0 ? (
+              <div className="empty-state">No projects yet.</div>
+            ) : (
+              <div className="project-grid">
+                {projects.map((p) => (
+                  <ProjectCard
+                    key={p.id}
+                    project={p}
+                    onOpen={() => setProjectId(p.id)}
+                    onDelete={() => setConfirming(p.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -104,5 +102,57 @@ export function ProjectsScreen() {
         />
       )}
     </div>
+  );
+}
+
+/* The pip is identity, not status — stable per project so the same show
+   keeps the same colour every time you open the app. */
+const PIPS = ['var(--primary)', 'var(--info)', 'var(--success)'];
+
+function pipFor(id: string): string {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PIPS[h % PIPS.length];
+}
+
+function ProjectCard({
+  project,
+  onOpen,
+  onDelete,
+}: {
+  project: Project;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <article className="cf-card">
+      <button className="project-card-btn" onClick={onOpen} style={{ flex: 1 }}>
+        <div className="cf-card-body">
+          <div className="cf-card-eyebrow">
+            <span className="cf-pip" style={{ background: pipFor(project.id) }} />
+            Project
+          </div>
+          <h3 className="cf-card-title">{project.name}</h3>
+          <div className="cf-card-meta">
+            <div>
+              <span className="cf-lbl">Songs</span>
+              <span className="cf-v">{project.songs.length}</span>
+            </div>
+            <div>
+              <span className="cf-lbl">Playlists</span>
+              <span className="cf-v">{project.playlists.length}</span>
+            </div>
+          </div>
+        </div>
+      </button>
+      <div className="cf-card-foot">
+        <button className="cf-btn sm ghost" onClick={onOpen}>
+          Open
+        </button>
+        <button className="cf-btn sm danger" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+    </article>
   );
 }

@@ -1,0 +1,125 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueFlow components used by CueCard.
+   Ported verbatim from the design system bundle so the controls
+   here are the design system's controls, not lookalikes.
+   Button · Input · Tag · Badge · Card
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Button ── */
+.cf-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  height: var(--ctrl-md); padding: 0 var(--s-4);
+  font-family: var(--cond); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; background: var(--surface2); color: var(--txt);
+  border: 1px solid var(--hair2); cursor: pointer; user-select: none; white-space: nowrap;
+  position: relative; outline: none;
+  transition: background var(--dur-fast) linear, border-color var(--dur-fast) linear,
+    color var(--dur-fast) linear;
+}
+.cf-btn:hover { background: var(--surface3); border-color: var(--hair3); color: var(--txt-hi); }
+.cf-btn:active { background: var(--surface); transform: translateY(0.5px); }
+.cf-btn:focus-visible { box-shadow: var(--focus); }
+.cf-btn:disabled { color: var(--txt-low); background: var(--surface); border-color: var(--hair); cursor: not-allowed; }
+.cf-btn.sm { height: var(--ctrl-sm); padding: 0 var(--s-3); font-size: 10px; gap: 6px; }
+.cf-btn.lg { height: var(--ctrl-lg); padding: 0 var(--s-5); font-size: 12px; letter-spacing: 0.16em; }
+.cf-btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.cf-btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.cf-btn.primary:active { background: var(--primary-active); border-color: var(--primary-active); }
+.cf-btn.primary:disabled { background: var(--surface); border-color: var(--hair); color: var(--txt-low); }
+.cf-btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.cf-btn.danger:hover { background: var(--danger-bg); color: #fff; }
+.cf-btn.ghost { background: transparent; border-color: transparent; color: var(--txt-mid); }
+.cf-btn.ghost:hover { color: var(--txt-hi); background: var(--surface2); border-color: var(--hair2); }
+.cf-btn.ghost:disabled { color: var(--txt-dim); background: transparent; border-color: transparent; }
+.cf-btn.icon { width: var(--ctrl-md); padding: 0; }
+.cf-btn.icon.sm { width: var(--ctrl-sm); }
+
+/* ── Input ── */
+.cf-fld { display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
+.cf-fld-lbl {
+  font-family: var(--cond); font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--txt-mid);
+}
+.cf-input {
+  display: flex; align-items: center; height: var(--ctrl-md);
+  background: var(--surface2); border: 1px solid var(--hair2);
+  font-family: var(--mono); font-size: 12.5px; color: var(--txt-hi); position: relative;
+  transition: border-color var(--dur-fast) linear, background var(--dur-fast) linear;
+}
+.cf-input input,
+.cf-input textarea {
+  flex: 1; height: 100%; background: transparent; border: none; outline: none;
+  padding: 0 var(--s-3); font-family: inherit; font-size: inherit; color: inherit; min-width: 0;
+}
+.cf-input input::placeholder,
+.cf-input textarea::placeholder { color: var(--txt-low); font-family: var(--sans); }
+.cf-input:hover { border-color: var(--hair3); }
+.cf-input:focus-within {
+  border-color: var(--primary); background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--primary-dim);
+}
+.cf-input.sm { height: var(--ctrl-sm); font-size: 11.5px; }
+
+/* ── Tag ── */
+.cf-tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 8px;
+  font-family: var(--mono); font-size: 11px; background: var(--surface2);
+  border: 1px solid var(--hair2); color: var(--txt-hi);
+}
+.cf-tag .cf-x {
+  display: inline-grid; place-items: center; width: 16px; height: 16px;
+  background: transparent; border: none; cursor: pointer; color: var(--txt-mid);
+  font-size: 10px; line-height: 1;
+}
+.cf-tag .cf-x:hover { color: var(--danger); background: var(--danger-bg); }
+
+/* ── Badge ── */
+.cf-badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px;
+  font-family: var(--cond); font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; background: var(--surface2); color: var(--txt-mid);
+  border: 1px solid var(--hair2);
+}
+.cf-badge .cf-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.cf-badge.info { color: var(--info); border-color: var(--info); background: var(--info-bg); }
+.cf-badge.success { color: var(--success); border-color: var(--success); background: var(--success-bg); }
+.cf-badge.warning { color: var(--warning); border-color: var(--warning); background: var(--warning-bg); }
+.cf-badge.danger { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+.cf-badge.neutral { color: var(--txt-mid); border-color: var(--hair2); background: var(--surface2); }
+
+/* ── Card ── */
+.cf-card {
+  background: var(--surface); border: 1px solid var(--hair);
+  display: flex; flex-direction: column; min-width: 280px; max-width: 320px;
+}
+.cf-card-body {
+  padding: var(--s-5) var(--s-4) var(--s-4);
+  display: flex; flex-direction: column; gap: var(--s-3); flex: 1;
+}
+.cf-card-eyebrow {
+  font-family: var(--cond); font-size: 10px; font-weight: 700; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--txt-mid); display: flex; align-items: center; gap: 6px;
+}
+.cf-card-eyebrow .cf-pip { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+.cf-card-title {
+  font-family: var(--cond); font-size: 22px; font-weight: 700; color: var(--txt-hi);
+  text-transform: uppercase; letter-spacing: -0.005em; line-height: 1.1;
+}
+.cf-card-desc { font-family: var(--sans); font-size: 13px; color: var(--txt); line-height: 1.5; }
+.cf-card-meta {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3);
+  padding-top: var(--s-3); border-top: 1px solid var(--hair);
+  font-family: var(--mono); font-size: 11px; color: var(--txt-mid);
+}
+.cf-card-meta .cf-lbl {
+  display: block; font-family: var(--cond); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--txt-mid); margin-bottom: 3px;
+}
+.cf-card-meta .cf-v {
+  display: block; font-family: var(--mono); font-size: 16px; font-weight: 600;
+  color: var(--txt-hi); letter-spacing: -0.01em;
+}
+.cf-card-foot {
+  padding: var(--s-3) var(--s-4); border-top: 1px solid var(--hair);
+  display: flex; justify-content: space-between; align-items: center; gap: var(--s-3);
+}

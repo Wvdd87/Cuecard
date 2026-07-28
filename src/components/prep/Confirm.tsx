@@ -13,18 +13,14 @@ export function Confirm({
 }) {
   return (
     <div className="scrim" onClick={onCancel}>
-      <div
-        className="popover"
-        style={{ width: 380 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ fontWeight: 600 }}>{title}</div>
-        {body && <div className="hint">{body}</div>}
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="h">{title}</div>
+        {body && <div className="b">{body}</div>}
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={onCancel}>
+          <button className="cf-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="btn danger" onClick={onConfirm}>
+          <button className="cf-btn danger" onClick={onConfirm}>
             {confirmLabel}
           </button>
         </div>

@@ -1,0 +1,74 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueFlow — COLOR TOKENS
+   Dark broadcast cockpit. Amber = standby/primary, red = tally/
+   destructive, green = locked/success. Cameras own eight reserved
+   hues that nothing else in the system may use.
+   Values are verbatim from the source kit — never rounded.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Base surfaces (darkest → lightest) ── */
+  --bg:        #07070a;   /* app background, deepest black */
+  --canvas:    #0a0a0d;   /* demo / inset panels */
+  --surface:   #111116;   /* cards, rails, menus */
+  --surface2:  #16161c;   /* inputs, chips, hover base */
+  --surface3:  #1d1d24;   /* raised / pressed surfaces */
+
+  /* ── Hairlines (borders scale with elevation) ── */
+  --hair:      #22222a;   /* default 1px divider */
+  --hair2:     #2e2e38;   /* control border */
+  --hair3:     #3a3a48;   /* hover / focus border, menu edge */
+
+  /* ── Text ramp (high → dim) ── */
+  --txt-hi:    #eef0f3;   /* headings, key values */
+  --txt:       #c8c9d0;   /* body */
+  --txt-mid:   #7c7e8a;   /* labels, helper, ambient */
+  --txt-low:   #4a4c56;   /* separators, disabled */
+  --txt-dim:   #2f3038;   /* ghost / lowest */
+
+  /* ── Semantic accents ── */
+  --primary:     #f0a838;  /* Amber — standby / primary action / focus */
+  --primary-bg:  rgba(240,168,56,0.10);
+  --primary-dim: rgba(240,168,56,0.55);
+  --primary-hover: #ffba50;
+  --primary-active: #d8941f;
+
+  --danger:      #ff2848;  /* Tally red — on-air, destructive, urgent */
+  --danger-bg:   rgba(255,40,72,0.10);
+
+  --success:     #18d986;  /* Locked, connected, validated, complete */
+  --success-bg:  rgba(24,217,134,0.08);
+
+  --info:        #4c8dff;  /* Neutral information, inline links */
+  --info-bg:     rgba(76,141,255,0.10);
+
+  --warning:     #f0a838;  /* same amber as primary */
+  --warning-bg:  var(--primary-bg);
+
+  /* Contrast ink dropped onto solid accent fills */
+  --on-primary:  #06060a;
+  --on-danger:   #ffffff;
+  --on-success:  #04422b;
+
+  /* ── Camera palette — reserved for camera sub-tracks only ── */
+  --cam1: #4cb1ff;  --cam1-bg: rgba(76,177,255,0.16);
+  --cam2: #ff5d8a;  --cam2-bg: rgba(255,93,138,0.16);
+  --cam3: #5ad79c;  --cam3-bg: rgba(90,215,156,0.16);
+  --cam4: #b08aff;  --cam4-bg: rgba(176,138,255,0.16);
+  --cam5: #ffb13c;  --cam5-bg: rgba(255,177,60,0.16);
+  --cam6: #4cdce6;  --cam6-bg: rgba(76,220,230,0.16);
+  --cam7: #ffd84d;  --cam7-bg: rgba(255,216,77,0.16);
+  --cam8: #e07cff;  --cam8-bg: rgba(224,124,255,0.16);
+
+  /* ── Semantic aliases (role → base) ── */
+  --text-body:       var(--txt);
+  --text-heading:    var(--txt-hi);
+  --text-muted:      var(--txt-mid);
+  --text-disabled:   var(--txt-low);
+  --surface-card:    var(--surface);
+  --surface-input:   var(--surface2);
+  --border-default:  var(--hair);
+  --border-control:  var(--hair2);
+  --border-strong:   var(--hair3);
+  --focus-color:     var(--primary);
+}

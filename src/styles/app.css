@@ -1,0 +1,552 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueCard — application styles.
+   Every value here resolves to a CueFlow token. Nothing in this
+   file may introduce a raw colour, size or radius: if something
+   needs a value the design system does not have, that is a design
+   system question, not a local override.
+
+   Live-view type sizes carry `* var(--fit, 1)`. The fit multiplier
+   is behaviour, not style — it shrinks content that a block is too
+   small to hold, which the template-editor spec requires and this
+   redesign does not change.
+   ═══════════════════════════════════════════════════════════════ */
+
+html, body, #root { height: 100%; }
+
+/* The operator's own brightness/contrast, applied above the device's. */
+.app {
+  height: 100%;
+  background: var(--bg);
+  filter: brightness(var(--app-brightness, 1)) contrast(var(--app-contrast, 1));
+}
+
+button { font: inherit; color: inherit; }
+input, textarea, select { font: inherit; }
+:focus-visible { outline: none; box-shadow: var(--focus); }
+
+/* ── Shared text roles ───────────────────────────────────────── */
+
+.eyebrow {
+  font-family: var(--cond); font-size: var(--fs-label-sm); font-weight: var(--w-bold);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--txt-mid);
+}
+.label-cap {
+  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
+  letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--txt-mid);
+}
+.help { font-family: var(--sans); font-size: 11.5px; color: var(--txt-low); line-height: var(--lh-ui); }
+.mono-sm { font-family: var(--mono); font-size: 10.5px; color: var(--txt-low); }
+
+.row { display: flex; align-items: center; gap: var(--s-2); }
+.spacer { flex: 1; }
+
+/* Camera identity dot — the palette is reserved for cameras alone. */
+.cam-dot { width: 7px; height: 7px; border-radius: var(--radius-pill); flex: none; }
+
+/* ── Prep chrome ─────────────────────────────────────────────── */
+
+.prep { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+.prep-bar {
+  flex: none; display: flex; align-items: center; gap: 18px; height: 52px;
+  padding: 0 var(--s-5); background: var(--surface); border-bottom: 1px solid var(--hair);
+}
+.wordmark {
+  font-family: var(--cond); font-weight: var(--w-black); font-size: 15px;
+  letter-spacing: 0.02em; color: var(--txt-hi); background: none; border: 0;
+  padding: 0; cursor: pointer;
+}
+.wordmark:hover { color: var(--primary-hover); }
+.prep-bar .sep { width: 1px; height: 22px; background: var(--hair2); }
+.prep-bar .ctx { font-family: var(--mono); font-size: var(--fs-label-sm); color: var(--txt-low); }
+
+.tabs { display: flex; gap: 2px; }
+.tab {
+  height: 32px; padding: 0 14px; background: transparent; border: 1px solid transparent;
+  color: var(--txt-mid); font-family: var(--cond); font-size: var(--fs-label);
+  font-weight: var(--w-bold); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+}
+.tab:hover { color: var(--txt-hi); }
+.tab[aria-selected='true'] { background: var(--surface2); border-color: var(--hair3); color: var(--txt-hi); }
+
+.prep-body { flex: 1; min-height: 0; overflow: hidden; }
+
+.pane { height: 100%; display: grid; grid-template-columns: 300px 1fr; }
+.pane > .side { border-right: 1px solid var(--hair); background: var(--surface); overflow: auto; }
+.pane > .main { overflow: auto; }
+
+.side-head {
+  position: sticky; top: 0; z-index: 2; background: var(--surface);
+  border-bottom: 1px solid var(--hair); padding: var(--s-3) 14px;
+  display: flex; align-items: center; gap: var(--s-2);
+}
+
+/* Side list rows (bucket songs, playlists) */
+.side-row {
+  width: 100%; display: flex; align-items: center; gap: var(--s-2); text-align: left;
+  background: transparent; border: 0; border-bottom: 1px solid var(--hair);
+  border-left: 3px solid transparent; color: var(--txt-mid);
+  padding: 10px 14px 10px 11px; cursor: pointer;
+}
+.side-row:hover { background: var(--surface2); }
+.side-row[aria-current='true'] {
+  background: var(--surface2); border-left-color: var(--txt-hi); color: var(--txt-hi);
+}
+.side-row .t { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-row .sub { font-family: var(--mono); font-size: 10.5px; color: var(--txt-low); margin-top: 2px; }
+.side-row .marker { font-family: var(--mono); font-size: var(--fs-label); color: var(--primary); letter-spacing: 0.08em; }
+
+.section { padding: 26px 30px; }
+.empty-state {
+  padding: var(--s-12) var(--s-6); text-align: center; color: var(--txt-mid);
+  font-family: var(--sans); font-size: 13px; line-height: 1.7;
+}
+
+/* Group divider used through the song editor */
+.group-head { display: flex; align-items: center; gap: var(--s-3); margin: 22px 0 10px; }
+.group-head .rule { flex: 1; height: 1px; background: var(--hair); }
+
+/* ── Projects ────────────────────────────────────────────────── */
+
+.projects { height: 100%; overflow: auto; padding: 36px var(--s-10); }
+.projects-inner { max-width: 1200px; margin: 0 auto; }
+.projects-intro {
+  font-family: var(--sans); font-size: 13px; color: var(--txt-mid);
+  max-width: 560px; line-height: var(--lh-body); margin: 6px 0 22px;
+}
+.project-grid { display: flex; flex-wrap: wrap; gap: var(--s-5); }
+.project-card-btn {
+  padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+  display: block;
+}
+.project-card-btn:hover .cf-card { border-color: var(--hair3); }
+
+/* ── Song editor ─────────────────────────────────────────────── */
+
+.editor-title {
+  width: 100%; background: transparent; border: 1px solid transparent;
+  font-family: var(--cond); font-size: 28px; font-weight: var(--w-bold);
+  color: var(--txt-hi); padding: 4px 6px; margin-bottom: 4px; outline: none;
+}
+.editor-title:hover { border-color: var(--hair); }
+.editor-title:focus { border-color: var(--primary); background: var(--surface2); }
+
+/* Reposition — a property of the transition, not a block. */
+.repo-editor {
+  border: 1px solid var(--hair); border-left: 3px solid var(--primary);
+  background: var(--primary-bg); padding: 14px var(--s-4); margin-bottom: 22px;
+}
+.repo-editor .title {
+  font-family: var(--cond); font-size: var(--fs-label-sm); font-weight: var(--w-bold);
+  letter-spacing: 0.16em; color: var(--primary); text-transform: uppercase; margin-bottom: 10px;
+}
+.repo-editor .lede { font-family: var(--sans); font-size: 11.5px; color: var(--txt-mid); margin-bottom: 4px; }
+.repo-editor .lede b { color: var(--txt); }
+.field {
+  width: 100%; height: 34px; background: var(--surface2); border: 1px solid var(--hair2);
+  color: var(--txt-hi); font-family: var(--mono); font-size: var(--fs-mono);
+  padding: 0 10px; outline: none;
+}
+.field::placeholder { color: var(--txt-low); font-family: var(--sans); }
+.field:focus { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary-dim); }
+.field.sans { font-family: var(--sans); font-size: 13px; }
+
+.block-card { border: 1px solid var(--hair); background: var(--surface); margin-bottom: var(--s-3); }
+.block-card > header {
+  display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--hair); background: var(--surface2);
+}
+.block-card > header .name {
+  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
+  letter-spacing: 0.1em; color: var(--txt-hi); text-transform: uppercase;
+}
+.block-card > header .hint { font-family: var(--sans); font-size: var(--fs-label); color: var(--txt-low); }
+.block-card > .body { padding: var(--s-3); }
+
+.editor-rows { display: flex; flex-direction: column; gap: 6px; }
+.editor-row { display: grid; gap: 6px; align-items: center; }
+.editor-row .cam-cell {
+  display: flex; align-items: center; gap: 6px; height: 32px;
+  background: var(--surface2); border: 1px solid var(--hair2); padding: 0 var(--s-2);
+}
+.editor-row .cam-cell input {
+  width: 100%; min-width: 0; background: transparent; border: 0; outline: none;
+  font-family: var(--mono); font-size: 12px; color: var(--txt-hi); text-transform: uppercase;
+}
+.editor-row .cell-input {
+  height: 32px; background: var(--surface2); border: 1px solid var(--hair2);
+  color: var(--txt-hi); font-family: var(--mono); font-size: 12px; padding: 0 var(--s-2);
+  outline: none; min-width: 0;
+}
+.editor-row .cell-input.note { color: var(--txt-mid); text-transform: none; }
+.editor-row .cell-input:focus { border-color: var(--primary); }
+.icon-x {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; color: var(--txt-low); cursor: pointer; line-height: 1;
+}
+.icon-x:hover { color: var(--danger); }
+
+.tag-field { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tag-input {
+  width: 120px; height: 28px; background: transparent; border: 1px dashed var(--hair2);
+  color: var(--txt); font-family: var(--mono); font-size: var(--fs-mono-sm);
+  padding: 0 var(--s-2); outline: none;
+}
+.tag-input:focus { border-style: solid; border-color: var(--primary); }
+
+.imagebox { border: 1px dashed var(--hair2); padding: 28px; text-align: center; }
+.imagebox .cap {
+  font-family: var(--mono); font-size: var(--fs-mono-sm); color: var(--txt-low);
+  letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px;
+}
+.imagebox img { max-width: 100%; max-height: 420px; display: block; margin: 0 auto 10px; }
+
+/* ── Playlists ───────────────────────────────────────────────── */
+
+.playlist-title {
+  flex: 1; background: transparent; border: 1px solid transparent;
+  font-family: var(--cond); font-size: 24px; font-weight: var(--w-bold);
+  color: var(--txt-hi); padding: 4px 6px; outline: none;
+}
+.playlist-title:hover { border-color: var(--hair); }
+.playlist-title:focus { border-color: var(--primary); background: var(--surface2); }
+.date-field {
+  width: 150px; height: 34px; background: var(--surface2); border: 1px solid var(--hair2);
+  color: var(--txt); font-family: var(--mono); font-size: 12px; padding: 0 10px; outline: none;
+}
+
+.order-list { border: 1px solid var(--hair); }
+.order-list > li { border-bottom: 1px solid var(--hair); list-style: none; }
+.order-list > li:last-child { border-bottom: 0; }
+.order-row { display: flex; align-items: center; gap: var(--s-3); padding: 9px var(--s-3); }
+.order-row .n { font-family: var(--mono); color: var(--txt-low); width: 22px; text-align: right; flex: none; }
+.order-row .t {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13.5px; color: var(--txt);
+}
+.order-row .marker { font-family: var(--mono); font-size: var(--fs-label); color: var(--primary); width: 16px; }
+.order-warn {
+  font-family: var(--sans); font-size: var(--fs-label); color: var(--txt-mid);
+  padding: 0 var(--s-3) 9px 44px; line-height: 1.4;
+}
+.mini-btn {
+  width: 26px; height: 26px; background: transparent; border: 1px solid var(--hair2);
+  color: var(--txt-mid); cursor: pointer; flex: none;
+}
+.mini-btn:hover { color: var(--txt-hi); border-color: var(--hair3); }
+.mini-btn:disabled { color: var(--txt-dim); cursor: not-allowed; }
+.mini-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Chip — layout override marker, palette entry */
+.chip {
+  height: 26px; padding: 0 10px; display: inline-flex; align-items: center;
+  background: var(--surface2); border: 1px solid var(--hair2); color: var(--txt-mid);
+  font-family: var(--cond); font-size: 10.5px; font-weight: var(--w-bold);
+  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; cursor: pointer;
+}
+.chip:hover { border-color: var(--hair3); color: var(--txt-hi); }
+.chip.on { background: var(--surface3); border-color: var(--hair3); color: var(--txt-hi); }
+.chip.sm { height: 24px; padding: 0 9px; font-size: 9.5px; letter-spacing: 0.08em; }
+
+.add-bucket-btn {
+  height: var(--ctrl-sm); padding: 0 10px; background: var(--surface2);
+  border: 1px solid var(--hair2); color: var(--txt-mid); font-size: 12px; cursor: pointer;
+}
+.add-bucket-btn:hover { color: var(--txt-hi); border-color: var(--hair3); }
+
+/* ── Template editor ─────────────────────────────────────────── */
+
+.template { height: 100%; overflow: auto; padding: 26px var(--s-8); }
+.template-inner { max-width: 1180px; margin: 0 auto; }
+.template-head { display: flex; align-items: flex-start; gap: var(--s-4); margin-bottom: var(--s-4); }
+.template-head .h {
+  font-family: var(--cond); font-size: 19px; font-weight: var(--w-bold); color: var(--txt-hi);
+}
+.template-head .sub {
+  font-family: var(--sans); font-size: 12px; color: var(--txt-mid); margin-top: 4px;
+}
+
+.palette { display: flex; flex-direction: column; gap: var(--s-2); margin-bottom: 14px; }
+.palette-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.palette-group > .label-cap { width: 78px; flex: none; }
+
+.notice {
+  font-family: var(--sans); font-size: 12px; line-height: var(--lh-body); color: var(--txt-hi);
+  background: var(--surface2); border-left: 2px solid var(--txt-mid);
+  padding: var(--s-2) 10px; margin-bottom: 10px;
+}
+
+.layout-stage { border: 1px solid var(--hair); background: var(--surface); }
+.layout-mock-head {
+  display: flex; justify-content: space-between; padding: 10px 14px;
+  border-bottom: 1px solid var(--hair); color: var(--txt-low);
+}
+.layout-mock-head .song {
+  font-family: var(--cond); font-size: 20px; font-weight: var(--w-bold); color: var(--txt-mid);
+}
+.layout-mock-body { display: grid; grid-template-columns: var(--rail-w) 1fr; height: 560px; }
+.layout-mock-rail {
+  border-right: 1px solid var(--hair); padding: var(--s-3);
+  color: var(--txt-low); font-size: var(--fs-label); line-height: 2;
+}
+.layout-mock-stage { display: flex; flex-direction: column; min-height: 0; }
+.layout-mock-band {
+  flex: none; height: 52px; display: flex; align-items: center; padding: 0 var(--s-4);
+  color: var(--txt-low);
+}
+.layout-mock-band .cap {
+  font-family: var(--cond); font-size: var(--fs-micro); font-weight: var(--w-bold);
+  letter-spacing: 0.16em; text-transform: uppercase;
+}
+.layout-canvas {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: repeat(var(--grid-cols), 1fr);
+  grid-template-rows: repeat(var(--grid-rows), 1fr);
+  gap: 3px; padding: 3px; touch-action: none;
+  background-image: linear-gradient(var(--hair) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hair) 1px, transparent 1px);
+  background-size: calc(100% / var(--grid-cols)) calc(100% / var(--grid-rows));
+}
+.layout-item {
+  background: var(--surface2); border: 1px solid var(--hair2); padding: 4px 7px;
+  overflow: hidden; position: relative; cursor: grab; user-select: none;
+}
+.layout-item:hover { border-color: var(--hair3); }
+.layout-item.dragging { border-color: var(--primary); z-index: 3; cursor: grabbing; }
+.layout-item .name {
+  font-family: var(--cond); font-size: var(--fs-micro); font-weight: var(--w-bold);
+  letter-spacing: 0.1em; color: var(--txt-mid); text-transform: uppercase;
+}
+.layout-item .preview {
+  position: absolute; inset: 18px 6px 6px 8px; overflow: hidden; opacity: 0.55;
+  pointer-events: none;
+}
+.layout-item .handle {
+  position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--hair2) 50%);
+}
+.layout-item .handle:hover { background: linear-gradient(135deg, transparent 50%, var(--primary) 50%); }
+
+/* ══ LIVE ════════════════════════════════════════════════════════
+   Fixed regions, identical geometry on every song. Only content
+   changes between songs.
+   ═══════════════════════════════════════════════════════════════ */
+
+.live {
+  height: 100%; display: grid; grid-template-columns: var(--rail-w) 1fr;
+  grid-template-rows: auto 1fr; background: var(--bg); overflow: hidden;
+}
+.live.live-repo { grid-template-rows: 1fr; }
+
+/* Rail — playlist overview and jump-anywhere navigation. */
+.live-rail {
+  grid-column: 1; grid-row: 1 / -1; border-right: 1px solid var(--hair);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.rail-list { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s-2) 0; }
+.rail-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: transparent; border: 0; border-left: 3px solid transparent;
+  color: var(--txt-mid); padding: var(--s-2) var(--s-4) var(--s-2) 13px;
+  cursor: pointer; font-size: 13px;
+}
+.rail-item:hover { background: var(--surface); }
+.rail-item .n { font-family: var(--mono); font-size: var(--fs-label); color: var(--txt-low); flex: none; width: 20px; }
+.rail-item .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-item .marker { font-family: var(--mono); font-size: var(--fs-label); color: var(--primary); }
+.rail-item.past { color: var(--txt-low); }
+.rail-item[aria-current='true'] {
+  background: var(--canvas); border-left-color: var(--txt-hi);
+  color: var(--txt-hi); font-weight: var(--w-bold);
+}
+/* Parked on the reposition card that follows this song. */
+.rail-item.moving { background: var(--primary-bg); border-left-color: var(--primary); }
+
+.rail-foot { flex: none; position: relative; border-top: 1px solid var(--hair); padding: 10px; }
+.tool-btn {
+  width: 100%; height: 32px; background: transparent; border: 1px solid var(--hair2);
+  color: var(--txt-mid); font-family: var(--cond); font-size: var(--fs-label-sm);
+  font-weight: var(--w-bold); letter-spacing: var(--ls-label); text-transform: uppercase;
+  cursor: pointer;
+}
+.tool-btn:hover { color: var(--txt-hi); border-color: var(--hair3); }
+
+.live-tools-pop {
+  position: absolute; bottom: calc(100% + 8px); left: 10px; width: 270px;
+  background: var(--surface); border: 1px solid var(--hair2); box-shadow: var(--shadow-pop);
+  padding: 14px; display: flex; flex-direction: column; gap: var(--s-3); z-index: 20;
+}
+.live-tools-pop .slider-label {
+  font-family: var(--cond); font-size: var(--fs-label-sm); font-weight: var(--w-bold);
+  letter-spacing: var(--ls-label); color: var(--txt-mid); text-transform: uppercase; margin-bottom: 6px;
+}
+.live-tools-pop input[type='range'] { width: 100%; accent-color: var(--primary); }
+.keys {
+  display: grid; grid-template-columns: auto 1fr; gap: 5px 10px;
+  font-family: var(--sans); font-size: var(--fs-label); color: var(--txt-mid); align-items: center;
+}
+.kbd {
+  font-family: var(--mono); font-size: var(--fs-label-sm); border: 1px solid var(--hair2);
+  border-bottom-width: 2px; padding: 1px 5px; color: var(--txt-mid); text-align: center;
+}
+.keys .mark { color: var(--primary); font-family: var(--mono); }
+.pop-btn {
+  flex: 1; height: 30px; background: var(--surface2); border: 1px solid var(--hair2);
+  color: var(--txt); font-size: 12px; cursor: pointer;
+}
+.pop-btn:hover { background: var(--surface3); color: var(--txt-hi); }
+.leave-btn {
+  height: var(--ctrl-sm); padding: 0 10px; background: transparent;
+  border: 1px solid var(--danger); color: var(--danger); font-size: 11.5px; cursor: pointer;
+}
+.leave-btn:hover { background: var(--danger-bg); color: var(--on-danger); }
+
+.live-head {
+  grid-column: 2; grid-row: 1; display: grid; grid-template-columns: 1fr auto;
+  align-items: baseline; gap: var(--s-5); padding: 18px var(--s-6) 15px;
+  border-bottom: 1px solid var(--hair); min-width: 0;
+}
+.live-title {
+  margin: 0; font-family: var(--cond); font-size: clamp(26px, 3.4vw, 48px);
+  font-weight: var(--w-bold); color: var(--txt-hi);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.live-next { display: flex; align-items: baseline; gap: 10px; min-width: 0; max-width: 40vw; }
+.live-next .name {
+  font-family: var(--mono); font-size: clamp(16px, 1.8vw, 26px); color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.live-next .name.end { color: var(--txt-low); }
+
+.live-stage {
+  grid-column: 2; grid-row: 2; display: grid; grid-template-rows: auto 1fr;
+  min-height: 0; min-width: 0; padding: 18px; gap: 18px;
+}
+
+/*
+ * Reposition-during band. Fixed, dedicated spot, holding its height whether
+ * or not this song has a move — collapsing it would shift the grid below,
+ * and the grid must never move.
+ */
+.repo-band {
+  min-height: 76px; display: flex; align-items: center; gap: 14px;
+  padding: 0 var(--s-5); overflow: hidden;
+}
+.repo-band.on { background: var(--primary-bg); box-shadow: inset 3px 0 0 var(--primary); }
+.repo-band .tagword {
+  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
+  letter-spacing: var(--ls-label); color: var(--primary); text-transform: uppercase; flex: none;
+}
+.repo-band .txt {
+  font-family: var(--cond); font-size: clamp(22px, 3vw, 40px); font-weight: var(--w-bold);
+  color: var(--txt-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* The configurable grid. Explicit coordinates — never reflows per song. */
+.live-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols), 1fr);
+  grid-template-rows: repeat(var(--grid-rows), 1fr);
+  gap: 10px; min-height: 0; min-width: 0;
+}
+
+.cell {
+  display: flex; flex-direction: column; gap: 6px; padding: 14px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--hair); min-width: 0; min-height: 0;
+}
+.cell > .cell-label {
+  flex: none; font-family: var(--cond); font-size: 10.5px; font-weight: var(--w-bold);
+  letter-spacing: var(--ls-label); color: var(--txt-mid); text-transform: uppercase;
+}
+.cell > .cell-body { flex: 1; min-height: 0; overflow: hidden; }
+
+/* Rows block — fixed columns so a description starts at the same
+   x-position on every row. */
+.codetable {
+  display: grid; align-content: start; justify-content: start;
+  width: max-content; max-width: 100%;
+  font-size: calc(clamp(15px, 1.6vw, 26px) * var(--tier-scale, 1) * var(--fit, 1));
+}
+.codetable.cols2 { grid-template-columns: 70px 1fr; }
+.codetable.cols3 { grid-template-columns: 70px minmax(90px, max-content) 1fr; }
+.codetable .num {
+  display: flex; align-items: center; gap: 7px; justify-content: flex-end;
+  padding: 0.24em 0.5em; font-family: var(--mono); font-weight: var(--w-bold); color: var(--txt-hi);
+}
+.codetable .val {
+  padding: 0.24em 0.5em; font-family: var(--mono); font-weight: var(--w-semibold);
+  color: var(--txt-hi); white-space: nowrap;
+}
+.codetable .aside {
+  padding: 0.24em 0.5em; font-family: var(--mono); color: var(--txt-mid); white-space: nowrap;
+}
+.codetable .band { background: rgba(255, 255, 255, 0.03); }
+
+/* Tags block */
+.tagrow {
+  display: flex; flex-wrap: wrap; gap: 0.35em 0.4em;
+  font-size: calc(clamp(18px, 2.4vw, 40px) * var(--tier-scale, 1) * var(--fit, 1));
+}
+.tagrow span {
+  border: 1px solid var(--hair2); padding: 0.1em 0.45em;
+  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi); white-space: nowrap;
+}
+
+/* Single-line block */
+.linetext {
+  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi);
+  font-size: calc(clamp(14px, 1.6vw, 26px) * var(--tier-scale, 1) * var(--fit, 1));
+  line-height: 1.25; overflow-wrap: anywhere; overflow: hidden;
+}
+
+/* ── Reposition interstitial — full page, unmissable, still dark ── */
+
+.interstitial {
+  grid-column: 2; grid-row: 1 / -1; display: flex; flex-direction: column;
+  justify-content: center; gap: var(--s-6); padding: 70px; min-width: 0;
+  /* The one literal in this file: the mockup specifies this exact warm
+     near-black for the reposition card and the system has no token for it. */
+  background: #0c0703;
+  background-image: repeating-linear-gradient(
+    -45deg, rgba(240, 168, 56, 0.07) 0 14px, transparent 14px 34px
+  );
+  box-shadow: inset 0 0 0 2px var(--primary-dim);
+}
+.interstitial .kicker {
+  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
+  letter-spacing: 0.16em; color: var(--primary); text-transform: uppercase;
+}
+.interstitial .body {
+  font-family: var(--cond); font-size: clamp(30px, 4.4vw, 60px); font-weight: var(--w-bold);
+  line-height: var(--lh-heading); color: var(--txt-hi); overflow-wrap: anywhere;
+}
+.interstitial .foot {
+  display: flex; align-items: baseline; gap: 14px;
+  font-family: var(--sans); font-size: 13px; color: var(--txt-mid);
+}
+.interstitial .foot b { color: var(--txt); }
+.interstitial .foot .cue {
+  margin-left: auto; font-family: var(--cond); font-size: var(--fs-label-sm);
+  font-weight: var(--w-bold); letter-spacing: var(--ls-label); text-transform: uppercase;
+}
+
+.live-empty { grid-column: 2; grid-row: 1 / -1; display: grid; place-items: center; }
+
+/* ── Confirm dialog ──────────────────────────────────────────── */
+
+.scrim {
+  position: fixed; inset: 0; background: var(--backdrop); display: flex;
+  align-items: center; justify-content: center; z-index: 50; padding: var(--s-5);
+}
+.dialog {
+  background: var(--surface); border: 1px solid var(--hair2); box-shadow: var(--shadow-modal);
+  padding: var(--s-5); width: 400px; display: flex; flex-direction: column; gap: var(--s-3);
+}
+.dialog .h {
+  font-family: var(--cond); font-size: var(--fs-h3); font-weight: var(--w-bold); color: var(--txt-hi);
+}
+.dialog .b { font-family: var(--sans); font-size: 12.5px; color: var(--txt-mid); line-height: var(--lh-body); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
