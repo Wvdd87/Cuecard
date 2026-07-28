@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Design reference — the CueFlow UI kit lives on the machine, not in the repo.
+# It is the authority for every visual decision here; its rules are written
+# into CLAUDE.md so they survive a clone that does not have this folder.
+ui-kit

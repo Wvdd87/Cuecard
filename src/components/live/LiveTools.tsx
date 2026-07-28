@@ -73,15 +73,15 @@ export function LiveTools({
 
           {/* Touch fallback for back/forward, kept off the glance surface. */}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="pop-btn" onClick={onPrev}>
+            <button className="cf-btn sm" onClick={onPrev}>
               ◀ Back
             </button>
-            <button className="pop-btn" onClick={onNext}>
+            <button className="cf-btn sm" onClick={onNext}>
               Next ▶
             </button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="pop-btn" onClick={toggleFullscreen}>
+            <button className="cf-btn sm" onClick={toggleFullscreen}>
               Fullscreen
             </button>
           </div>
@@ -94,7 +94,7 @@ export function LiveTools({
             }}
           >
             <span className="help">{playlistName}</span>
-            <button className="leave-btn" onClick={onExit}>
+            <button className="cf-btn sm danger" onClick={onExit}>
               Leave live
             </button>
           </div>

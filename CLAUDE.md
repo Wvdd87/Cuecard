@@ -18,6 +18,11 @@ Lint is expected to be clean, not just warning-free-ish — the one recurring
 warning is `react/only-export-components`, which is why pure helpers live in
 `src/lib/` rather than beside the components that use them.
 
+> **Before changing anything visual**, read *The visual system* below. This UI
+> implements the CueFlow design system, and its rules are specific and binding —
+> they are not defaults to improve on. The kit itself is at
+> `ui-kit/CueFlow UI Kit v2.html` (gitignored, machine-local).
+
 ## What this app is
 
 Camera-directing reference for music shows **not on timecode** — every cue is
@@ -150,10 +155,16 @@ caused a silent bug where every row past the eighth collapsed to auto height.
 
 ### The visual system — CueFlow design system
 
-The UI is an implementation of the **CueFlow** design system, imported from the
-Claude Design project *Cuecard UI mockups*
-(`b4410d53-36cd-4218-a90d-31d0ff470b97`). The mockup is the source of truth for
-anything visual; if code and mockup disagree, the mockup wins.
+**The authority for every visual decision is the CueFlow UI kit at
+`ui-kit/CueFlow UI Kit v2.html`.** Open it before designing anything new. It is
+gitignored — it lives on the machine, not in the repo — so a clone may not have
+it, and the rules below are the durable copy. Treat them as binding even when
+the file is absent. If the file is present and disagrees with this section, the
+file wins and this section should be corrected.
+
+The mockup this UI was built from (Claude Design project *Cuecard UI mockups*,
+`b4410d53-36cd-4218-a90d-31d0ff470b97`) is an application of that kit. For
+anything the mockup does not cover, go to the kit rather than inventing.
 
 `src/styles/` is the whole visual layer:
 
@@ -172,31 +183,78 @@ both are deliberate: `#fff` inside the DS's own danger-button rule (ported
 verbatim), and `#0c0703` for the reposition card, which the mockup hardcodes
 because the system has no token for it.
 
-Key system facts that are easy to violate:
+#### The kit's rules, in the order it states them
 
-- **Corners are square.** `--radius` is `0px`. The only round forms are
-  functional dots — `--radius-pill` is for pips and camera dots, nothing else.
-- **Three families with jobs:** `--cond` (headings, labels, eyebrows, all UI
-  caps), `--sans` (body and help text), `--mono` (values, codes, IDs, numbers).
-- **The camera palette `--cam1..8` is reserved for cameras.** Nothing else in
-  the app may use those hues — that reservation is what lets the operator read
-  "camera 3" off a colour. `cameraColor()` in `src/lib/camera.ts` is the only
-  place the mapping lives; non-numeric cam fields get no dot rather than an
-  arbitrary colour.
-- **Amber `--primary` is standby/primary/focus**, and in this app it also
-  carries camera repositioning (markers, band, card). Red `--danger` is
-  destructive only.
-- **Spacing is a strict 4px grid** (`--s-*`), control heights snap to 28/36/44
-  (`--ctrl-sm|md|lg`).
+**Foundations.** No new colours are ever invented: amber `--primary` =
+standby / focus / primary action / key data values; red `--danger` = tally and
+destructive; green `--success` = locked / validated; blue `--info` =
+neutral information. Spacing is a strict 4px grid and every control height
+snaps to **28 / 36 / 44** (`--ctrl-sm|md|lg`). Corners are square everywhere —
+`--radius` is `0`; `--radius-pill` is for functional dots only (pips, camera
+dots, radios).
 
-**Fonts are self-hosted, and that is the one intentional deviation.** The DS's
-`tokens/fonts.css` `@import`s Google Fonts; ours `@font-face`s the same latin
-subsets from `/fonts`. A remote import would put a network round-trip in the
-boot path and silently fall back to system-ui in a venue with no wifi — exactly
-the failure the reliability spec rules out. Verified: zero external requests,
-and all three families still render with the network cut. Add a weight by
-downloading the subset into `public/fonts` and adding a `@font-face`, never by
-restoring the `@import`.
+**Type.** Three families with fixed jobs: `--sans` (IBM Plex Sans) for body and
+help text, `--cond` (Condensed) for headlines, labels, eyebrows and all UI
+caps, `--mono` (JetBrains Mono) for timecode, IDs, numbers and any value that
+must align. **Body copy never drops below 12px** — the 9/10/11px sizes are the
+*label* scale (`--fs-label`, `--fs-label-sm`, `--fs-micro`) and are only for
+condensed caps, never for sentences. Numeric values are tabular.
+
+**Controls (kit §1).** Every input ships focus, hover, active, disabled and
+error states. **All buttons use condensed caps labels** — there are no bespoke
+buttons; use `cf-btn` with one of four hierarchies (primary / secondary /
+ghost / danger, plus icon-only) and one of three sizes. Text fields carry a
+**monospace value** and **sans helper text underneath**; errors are marked in
+tally red but **never as a red fill on the field**. Checkboxes are square,
+radios circular, amber fill on select.
+
+**Navigation (kit §2).** The nav bar is **56px** (`--navbar-h`), edge-to-edge,
+and **always carries a 2px amber underline at 0.6 opacity** as a calm system
+anchor. Layouts must scale 1440 → 768 without restructuring the DOM.
+
+**Information display (kit §3).** Density is high by design; whitespace earns
+its place. **Modals carry a 2px `--primary` top border** and a `--hair3` edge
+against an opaque-leaning backdrop. Tooltips use condensed-caps payloads and
+should pair with `aria-describedby`.
+
+**Cameras (kit §4).** **Cameras own colour.** The eight hues `--cam1..8` are
+reserved exclusively for camera sub-tracks and nothing else in the app may use
+them. **Each camera is locked to one hue and is never recoloured.** Anything
+that is not a camera stays quiet and typographic — greyscale — so lists read as
+one rhythm. The kit's camera badge is a two-digit zero-padded number in mono
+800 with tabular figures on the camera's hue; CueCard's lighter-weight
+equivalent is the identity dot from `cameraColor()` in `src/lib/camera.ts`,
+which is the only place the number→hue mapping may live. Tally red is the
+loudest signal in the system and **only an on-air state may fill solid red**.
+
+**Feedback (kit §7).** Toasts stack top-right and escalate by severity; solid
+red is reserved for show-stopping events.
+
+#### What in the kit does NOT apply to CueCard
+
+The kit is a cockpit for a **timecode-driven** show. CueCard exists precisely
+because the music is *not* on timecode, so these parts of the kit describe
+components this app must never grow:
+
+- §5 Audio — waveforms, peak meters, LUFS.
+- §6 Time & Cues — the timecode display, and especially the **next-fire bar**
+  ("grows toward GO", "flips red under 5s") and any countdown.
+
+There is no clock to key any of that off. If a future change seems to want a
+countdown, a progress-to-fire bar or a timecode readout, that is a sign the
+change has misunderstood the product: information that matters for a whole song
+is *always-visible*, never timed. Borrow the kit's **look** freely; do not
+borrow its **timing** components.
+
+#### Fonts — the one intentional deviation
+
+The DS's `tokens/fonts.css` `@import`s Google Fonts; ours `@font-face`s the same
+latin subsets from `/fonts`. A remote import would put a network round-trip in
+the boot path and silently fall back to system-ui in a venue with no wifi —
+exactly the failure the reliability spec rules out. Verified: zero external
+requests, and all three families still render with the network cut. Add a
+weight by downloading the subset into `public/fonts` and adding a `@font-face`,
+never by restoring the `@import`.
 
 Live-view type carries `* var(--tier-scale, 1) * var(--fit, 1)`. Both are
 behaviour, not style: `--fit` shrinks content a block is too small to hold, and

@@ -34,7 +34,7 @@ input, textarea, select { font: inherit; }
   font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
   letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--txt-mid);
 }
-.help { font-family: var(--sans); font-size: 11.5px; color: var(--txt-low); line-height: var(--lh-ui); }
+.help { font-family: var(--sans); font-size: 12px; color: var(--txt-low); line-height: var(--lh-ui); }
 .mono-sm { font-family: var(--mono); font-size: 10.5px; color: var(--txt-low); }
 
 .row { display: flex; align-items: center; gap: var(--s-2); }
@@ -47,9 +47,16 @@ input, textarea, select { font: inherit; }
 
 .prep { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 
+/* Kit 2.1: the nav bar is 56px, edge-to-edge, and always carries a 2px amber
+   underline as a calm system anchor. */
 .prep-bar {
-  flex: none; display: flex; align-items: center; gap: 18px; height: 52px;
+  flex: none; display: flex; align-items: center; gap: 18px; height: var(--navbar-h);
   padding: 0 var(--s-5); background: var(--surface); border-bottom: 1px solid var(--hair);
+  position: relative;
+}
+.prep-bar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 2px; background: var(--primary); opacity: 0.6;
 }
 .wordmark {
   font-family: var(--cond); font-weight: var(--w-black); font-size: 15px;
@@ -140,7 +147,7 @@ input, textarea, select { font: inherit; }
   font-family: var(--cond); font-size: var(--fs-label-sm); font-weight: var(--w-bold);
   letter-spacing: 0.16em; color: var(--primary); text-transform: uppercase; margin-bottom: 10px;
 }
-.repo-editor .lede { font-family: var(--sans); font-size: 11.5px; color: var(--txt-mid); margin-bottom: 4px; }
+.repo-editor .lede { font-family: var(--sans); font-size: 12px; color: var(--txt-mid); margin-bottom: 4px; }
 .repo-editor .lede b { color: var(--txt); }
 .field {
   width: 100%; height: 34px; background: var(--surface2); border: 1px solid var(--hair2);
@@ -160,7 +167,7 @@ input, textarea, select { font: inherit; }
   font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
   letter-spacing: 0.1em; color: var(--txt-hi); text-transform: uppercase;
 }
-.block-card > header .hint { font-family: var(--sans); font-size: var(--fs-label); color: var(--txt-low); }
+.block-card > header .hint { font-family: var(--sans); font-size: 12px; color: var(--txt-low); }
 .block-card > .body { padding: var(--s-3); }
 
 .editor-rows { display: flex; flex-direction: column; gap: 6px; }
@@ -226,7 +233,7 @@ input, textarea, select { font: inherit; }
 }
 .order-row .marker { font-family: var(--mono); font-size: var(--fs-label); color: var(--primary); width: 16px; }
 .order-warn {
-  font-family: var(--sans); font-size: var(--fs-label); color: var(--txt-mid);
+  font-family: var(--sans); font-size: 12px; color: var(--txt-mid);
   padding: 0 var(--s-3) 9px 44px; line-height: 1.4;
 }
 .mini-btn {
@@ -383,23 +390,16 @@ input, textarea, select { font: inherit; }
 .live-tools-pop input[type='range'] { width: 100%; accent-color: var(--primary); }
 .keys {
   display: grid; grid-template-columns: auto 1fr; gap: 5px 10px;
-  font-family: var(--sans); font-size: var(--fs-label); color: var(--txt-mid); align-items: center;
+  font-family: var(--sans); font-size: 12px; color: var(--txt-mid); align-items: center;
 }
 .kbd {
   font-family: var(--mono); font-size: var(--fs-label-sm); border: 1px solid var(--hair2);
   border-bottom-width: 2px; padding: 1px 5px; color: var(--txt-mid); text-align: center;
 }
 .keys .mark { color: var(--primary); font-family: var(--mono); }
-.pop-btn {
-  flex: 1; height: 30px; background: var(--surface2); border: 1px solid var(--hair2);
-  color: var(--txt); font-size: 12px; cursor: pointer;
-}
-.pop-btn:hover { background: var(--surface3); color: var(--txt-hi); }
-.leave-btn {
-  height: var(--ctrl-sm); padding: 0 10px; background: transparent;
-  border: 1px solid var(--danger); color: var(--danger); font-size: 11.5px; cursor: pointer;
-}
-.leave-btn:hover { background: var(--danger-bg); color: var(--on-danger); }
+/* Kit 1.1: every button in the system is a cf-btn — condensed caps label,
+   one of four hierarchies, one of three heights. No bespoke buttons. */
+.live-tools-pop .cf-btn { flex: 1; }
 
 .live-head {
   grid-column: 2; grid-row: 1; display: grid; grid-template-columns: 1fr auto;
@@ -538,9 +538,12 @@ input, textarea, select { font: inherit; }
   position: fixed; inset: 0; background: var(--backdrop); display: flex;
   align-items: center; justify-content: center; z-index: 50; padding: var(--s-5);
 }
+/* Kit 3.3: modals carry a 2px primary top-bar to anchor them. */
 .dialog {
-  background: var(--surface); border: 1px solid var(--hair2); box-shadow: var(--shadow-modal);
-  padding: var(--s-5); width: 400px; display: flex; flex-direction: column; gap: var(--s-3);
+  background: var(--surface); border: 1px solid var(--hair3);
+  border-top: 2px solid var(--primary); box-shadow: var(--shadow-modal);
+  padding: var(--s-5); width: min(520px, 90%); display: flex; flex-direction: column;
+  gap: var(--s-3);
 }
 .dialog .h {
   font-family: var(--cond); font-size: var(--fs-h3); font-weight: var(--w-bold); color: var(--txt-hi);
