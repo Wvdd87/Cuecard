@@ -9,7 +9,7 @@ import type {
   Session,
   Song,
 } from './types';
-import { GRID_COLS, GRID_ROWS } from './types';
+import { GRID_COLS, GRID_ROWS, ensureReposition } from './types';
 import {
   DEFAULT_LAYOUT,
   demoProject,
@@ -127,7 +127,7 @@ function withPlaylist(
 /** Add a block to a layout, or remove it if already placed. */
 function toggleBlock(layout: GridCell[], block: BlockType): GridCell[] {
   if (layout.some((c) => c.block === block)) {
-    return layout.filter((c) => c.block !== block);
+    return ensureReposition(layout.filter((c) => c.block !== block));
   }
   // Drop the new cell into the first free row, full width — somewhere
   // obvious, for the operator to then place properly.
@@ -299,7 +299,10 @@ export const useStore = create<State>()(
       setLayout: (projectId, playlistId, layout) =>
         set((s) => ({
           projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) => ({ ...pl, layout })),
+            withPlaylist(p, playlistId, (pl) => ({
+              ...pl,
+              layout: ensureReposition(layout),
+            })),
           ),
         })),
 
@@ -332,7 +335,7 @@ export const useStore = create<State>()(
           projects: withProject(s.projects, projectId, (p) =>
             withPlaylist(p, playlistId, (pl) => ({
               ...pl,
-              overrides: { ...pl.overrides, [songId]: layout },
+              overrides: { ...pl.overrides, [songId]: ensureReposition(layout) },
             })),
           ),
         })),
@@ -349,7 +352,7 @@ export const useStore = create<State>()(
                     // adjusting a familiar layout rather than starting blank.
                     overrides: {
                       ...pl.overrides,
-                      [songId]: pl.layout.map((c) => ({ ...c })),
+                      [songId]: ensureReposition(pl.layout.map((c) => ({ ...c }))),
                     },
                   },
             ),

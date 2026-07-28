@@ -305,14 +305,6 @@ input, textarea, select { font: inherit; }
   color: var(--txt-low); font-size: var(--fs-label); line-height: 2;
 }
 .layout-mock-stage { display: flex; flex-direction: column; min-height: 0; }
-.layout-mock-band {
-  flex: none; height: 52px; display: flex; align-items: center; padding: 0 var(--s-4);
-  color: var(--txt-low);
-}
-.layout-mock-band .cap {
-  font-family: var(--cond); font-size: var(--fs-micro); font-weight: var(--w-bold);
-  letter-spacing: 0.16em; text-transform: uppercase;
-}
 .layout-canvas {
   flex: 1; min-height: 0; display: grid;
   grid-template-columns: repeat(var(--grid-cols), 1fr);
@@ -328,6 +320,13 @@ input, textarea, select { font: inherit; }
 }
 .layout-item:hover { border-color: var(--hair3); }
 .layout-item.dragging { border-color: var(--primary); z-index: 3; cursor: grabbing; }
+.layout-item.repo-item {
+  background: var(--primary-bg); border-color: var(--primary-dim);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+.layout-item.repo-item .name { color: var(--primary); }
+.chip.locked { cursor: default; opacity: 1; }
+.chip.locked:disabled { color: var(--txt-hi); border-color: var(--hair3); background: var(--surface3); }
 .layout-item .name {
   font-family: var(--cond); font-size: var(--fs-micro); font-weight: var(--w-bold);
   letter-spacing: 0.1em; color: var(--txt-mid); text-transform: uppercase;
@@ -427,27 +426,25 @@ input, textarea, select { font: inherit; }
 .live-next .name.end { color: var(--txt-low); }
 
 .live-stage {
-  grid-column: 2; grid-row: 2; display: grid; grid-template-rows: auto 1fr;
-  min-height: 0; min-width: 0; padding: 18px; gap: 18px;
+  grid-column: 2; grid-row: 2; display: grid; min-height: 0; min-width: 0;
+  padding: 18px;
 }
 
 /*
- * Reposition-during band. Fixed, dedicated spot, holding its height whether
- * or not this song has a move — collapsing it would shift the grid below,
- * and the grid must never move.
+ * The during-song reposition cell. Placeable like any block, but it is the
+ * one cell a layout is guaranteed to contain, so a move is never invisible.
+ * Its space is only occupied when the song actually has a move — the grid's
+ * explicit coordinates keep every other cell where it was either way.
  */
-.repo-band {
-  min-height: 76px; display: flex; align-items: center; gap: 14px;
-  padding: 0 var(--s-5); overflow: hidden;
+.cell.repo-cell {
+  background: var(--primary-bg); border-color: var(--primary-dim);
+  box-shadow: inset 3px 0 0 var(--primary);
 }
-.repo-band.on { background: var(--primary-bg); box-shadow: inset 3px 0 0 var(--primary); }
-.repo-band .tagword {
-  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
-  letter-spacing: var(--ls-label); color: var(--primary); text-transform: uppercase; flex: none;
-}
-.repo-band .txt {
-  font-family: var(--cond); font-size: clamp(22px, 3vw, 40px); font-weight: var(--w-bold);
-  color: var(--txt-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.cell.repo-cell > .cell-label { color: var(--primary); }
+.repo-text {
+  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi);
+  font-size: calc(clamp(22px, 3vw, 40px) * var(--tier-scale, 1) * var(--fit, 1));
+  line-height: 1.15; overflow-wrap: anywhere; overflow: hidden;
 }
 
 /* The configurable grid. Explicit coordinates — never reflows per song. */

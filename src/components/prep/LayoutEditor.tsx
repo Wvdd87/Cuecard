@@ -1,15 +1,17 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { BlockType, GridCell, Song } from '../../lib/types';
+import type { BlockType, CellKey, GridCell, Song } from '../../lib/types';
 import {
   BLOCKS,
   BLOCK_GROUPS,
   GRID_COLS,
   GRID_ROWS,
   blocksInGroup,
+  cellLabel,
+  isReposition,
 } from '../../lib/types';
 import { GRID_VARS } from '../../lib/grid';
 import { clamp } from '../../lib/util';
-import { blockHasContent, unplacedBlocks } from '../../lib/blocks';
+import { cellHasContent, unplacedBlocks } from '../../lib/blocks';
 import { BlockContent } from '../live/blocks';
 import { useFitToBox } from '../../lib/fit';
 
@@ -42,7 +44,7 @@ export function LayoutEditor({
   resetLabel: string;
 }) {
   const canvas = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<BlockType | null>(null);
+  const [dragging, setDragging] = useState<CellKey | null>(null);
   usePreviewScale(canvas);
 
   const placed = layout.map((c) => c.block);
@@ -122,6 +124,18 @@ export function LayoutEditor({
 
         {/* Block library, grouped. Small specific units, not big zones. */}
         <div className="palette">
+          <div className="palette-group">
+            <span className="label-cap">Move</span>
+            {/* Placeable but never removable: a during-song move has to be
+                visible for the whole song, so this one cannot be turned off. */}
+            <button
+              className="chip on locked"
+              disabled
+              title="The reposition band can be moved and resized, but never removed — a during-song move must always be visible."
+            >
+              ✓ Reposition band · always shown
+            </button>
+          </div>
           {BLOCK_GROUPS.map((g) => (
             <div className="palette-group" key={g}>
               <span className="label-cap">{g}</span>
@@ -153,7 +167,7 @@ export function LayoutEditor({
         {overlapping.length > 0 && (
           <div className="notice">
             Overlapping:{' '}
-            <b>{overlapping.map((b) => BLOCKS[b].label).join(', ')}</b> — these
+            <b>{overlapping.map((b) => cellLabel(b)).join(', ')}</b> — these
             will stack on top of each other live.
           </div>
         )}
@@ -173,17 +187,14 @@ export function LayoutEditor({
               <div>3 · fixed</div>
             </div>
             <div className="layout-mock-stage">
-              <div className="layout-mock-band">
-                <span className="cap">Reposition band — fixed</span>
-              </div>
               <div className="layout-canvas" ref={canvas} style={GRID_VARS}>
                 {layout.map((cell) => (
                   <div
                     key={cell.block}
                     className={
-                      dragging === cell.block
-                        ? 'layout-item dragging'
-                        : 'layout-item'
+                      'layout-item' +
+                      (dragging === cell.block ? ' dragging' : '') +
+                      (isReposition(cell.block) ? ' repo-item' : '')
                     }
                     style={{
                       gridColumn: `${cell.x + 1} / span ${cell.w}`,
@@ -191,7 +202,7 @@ export function LayoutEditor({
                     }}
                     onPointerDown={(e) => beginDrag(e, cell, 'move')}
                   >
-                    <div className="name">{BLOCKS[cell.block].label}</div>
+                    <div className="name">{cellLabel(cell.block)}</div>
                     <PreviewBody cell={cell} song={song} />
                     <div
                       className="handle"
@@ -206,8 +217,9 @@ export function LayoutEditor({
 
         <div className="sub" style={{ marginTop: 12 }}>
           Drag to move, corner to resize. Content shrinks to fit whatever room
-          it's given — song title, next-song slot, rail and reposition band are
-          fixed and cannot move.
+          it's given. The reposition band moves and resizes like anything else
+          but cannot be removed — song title, next-song slot and the playlist
+          rail are the fixed parts.
         </div>
       </div>
     </div>
@@ -219,10 +231,14 @@ function PreviewBody({ cell, song }: { cell: GridCell; song?: Song }) {
   const ref = useFitToBox<HTMLDivElement>(
     `${song?.id ?? 'none'}:${song?.updatedAt ?? 0}:${cell.w}x${cell.h}`,
   );
-  if (!song || !blockHasContent(song, cell.block)) return null;
+  if (!song || !cellHasContent(song, cell.block)) return null;
   return (
     <div className="preview" ref={ref}>
-      <BlockContent song={song} block={cell.block} />
+      {isReposition(cell.block) ? (
+        <div className="repo-text">{song.repositionDuring}</div>
+      ) : (
+        <BlockContent song={song} block={cell.block} />
+      )}
     </div>
   );
 }
@@ -257,8 +273,8 @@ function usePreviewScale(canvas: React.RefObject<HTMLDivElement | null>) {
   }, [canvas]);
 }
 
-function findOverlaps(layout: GridCell[]): BlockType[] {
-  const hit = new Set<BlockType>();
+function findOverlaps(layout: GridCell[]): CellKey[] {
+  const hit = new Set<CellKey>();
   for (let i = 0; i < layout.length; i++) {
     for (let j = i + 1; j < layout.length; j++) {
       const a = layout[i];

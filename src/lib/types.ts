@@ -180,7 +180,8 @@ export interface Song {
   blocks: SongBlocks;
   /**
    * Camera repositioning. Not a block — a property of the transition.
-   * `during`: shown in the song's own live view, in the fixed reposition band.
+   * `during`: shown in the song's own live view, in the reposition cell — a
+   *           placeable region that every layout is guaranteed to contain.
    * `after`:  renders as a full-page interstitial before the next song.
    * Empty string means none. A song may have both.
    */
@@ -191,13 +192,58 @@ export interface Song {
   updatedAt: number;
 }
 
-/** A block's position in the configurable central grid. Units = grid cells. */
+/**
+ * The during-song reposition band.
+ *
+ * It is still not a block — it has no entry in BLOCKS, no editor of its own,
+ * and no content you can type into it; it renders the song's
+ * `repositionDuring`, which is a property of the transition. What changed is
+ * that it is *placeable*: the operator positions and sizes it in the grid
+ * like everything else.
+ *
+ * It may be moved and resized but never removed. A during-song move has to be
+ * visible for the whole song, so `ensureReposition` puts the cell back on
+ * every write and the editor's palette entry for it is locked.
+ */
+export const REPOSITION = 'reposition';
+export type RepositionKey = typeof REPOSITION;
+
+/** Anything that can occupy a cell: a content block, or the reposition band. */
+export type CellKey = BlockType | RepositionKey;
+
+export function isReposition(key: CellKey): key is RepositionKey {
+  return key === REPOSITION;
+}
+
+/** Live label for any cell. */
+export function cellLabel(key: CellKey): string {
+  return isReposition(key) ? 'Move' : BLOCKS[key].label;
+}
+
+/** A cell's position in the configurable central grid. Units = grid cells. */
 export interface GridCell {
-  block: BlockType;
+  block: CellKey;
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/** Default geometry for the band: full width, two rows, at the top. */
+export function repositionCell(): GridCell {
+  return { block: REPOSITION, x: 0, y: 0, w: GRID_COLS, h: 2 };
+}
+
+/**
+ * The guarantee, enforced at every write: a layout always contains the
+ * reposition cell. If one is somehow missing it is put back at the top —
+ * overlapping a block if it must, because a move the operator cannot see is
+ * worse than a block drawn over.
+ */
+export function ensureReposition(layout: GridCell[]): GridCell[] {
+  return layout.some((c) => isReposition(c.block))
+    ? layout
+    : [repositionCell(), ...layout];
 }
 
 export interface Playlist {

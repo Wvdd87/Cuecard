@@ -68,7 +68,7 @@ It's a property of the transition, set per song, in two independent forms:
 
 | | Where it shows | Rail marker |
 |---|---|---|
-| **During** the song | fixed band above the grid, the whole song long | `●` |
+| **During** the song | the reposition cell, the whole song long | `●` |
 | **After** the song | full-page card between this song and the next | `▼` |
 
 The after-song card takes over the header and the entire content stage, so the
@@ -98,8 +98,10 @@ The grid never reflows. Cell coordinates are explicit, so a song missing a
 block leaves a hole rather than shifting everything else. Verified: the grid's
 bounding box is identical between a song with a during-move and one without.
 
-The reposition band keeps its height even when a song has no move. Collapsing
-it would shift the grid, which is the one thing that breaks the whole point.
+The reposition band is a cell in that grid: **movable and resizable like any
+block, but never removable**. Wherever the operator puts it, a during-song move
+appears there for the whole song — the layout cannot be saved without it. Songs
+without a move leave that space dark, and nothing else shifts.
 
 ## The template editor
 

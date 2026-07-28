@@ -1,5 +1,5 @@
 import type { BlockRow, GridCell, Project } from './types';
-import { GRID_COLS, GRID_ROWS } from './types';
+import { GRID_COLS, GRID_ROWS, REPOSITION, repositionCell } from './types';
 import { DEFAULT_LAYOUT, emptyBlocks } from './defaults';
 import { uid } from './util';
 
@@ -12,7 +12,7 @@ import { uid } from './util';
  * an empty value rather than throwing.
  */
 
-export const STORE_VERSION = 2;
+export const STORE_VERSION = 3;
 
 interface LegacyRow {
   id?: string;
@@ -115,8 +115,56 @@ function v1ToV2(projects: unknown): Project[] {
   });
 }
 
+/**
+ * v2 -> v3
+ *  - the during-song reposition band stops being a fixed strip above the grid
+ *    and becomes a placeable cell inside it
+ *
+ * The band used to occupy its own space above a 12-row grid, so the grid now
+ * has that space back. Existing cells are compressed into the rows below the
+ * band rather than shifted off the bottom, which keeps a layout's reading
+ * order and rough proportions intact.
+ */
+const BAND_H = 2;
+
+function v2ToV3(projects: unknown): Project[] {
+  if (!Array.isArray(projects)) return projects as Project[];
+
+  const withBand = (layout: unknown): GridCell[] => {
+    if (!Array.isArray(layout)) return DEFAULT_LAYOUT.map((c) => ({ ...c }));
+    const cells = layout as GridCell[];
+    if (cells.some((c) => c.block === REPOSITION)) return cells;
+
+    const usable = GRID_ROWS - BAND_H;
+    const scaled = cells.map((c) => {
+      const y = Math.min(usable - 1, Math.round((c.y * usable) / GRID_ROWS));
+      const h = Math.max(
+        1,
+        Math.min(usable - y, Math.round((c.h * usable) / GRID_ROWS)),
+      );
+      return { ...c, y: y + BAND_H, h };
+    });
+    return [repositionCell(), ...scaled];
+  };
+
+  return (projects as Project[]).map((p) => ({
+    ...p,
+    playlists: (p.playlists ?? []).map((pl) => ({
+      ...pl,
+      layout: withBand(pl.layout),
+      overrides: Object.fromEntries(
+        Object.entries(pl.overrides ?? {}).map(([id, l]) => [id, withBand(l)]),
+      ),
+    })),
+  }));
+}
+
 export function migrate(persisted: unknown, version: number): unknown {
   const state = (persisted ?? {}) as Record<string, unknown>;
   if (version >= STORE_VERSION) return state;
-  return { ...state, projects: v1ToV2(state.projects) };
+
+  let projects = state.projects;
+  if (version < 2) projects = v1ToV2(projects);
+  if (version < 3) projects = v2ToV3(projects);
+  return { ...state, projects };
 }

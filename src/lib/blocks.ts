@@ -1,5 +1,5 @@
-import type { BlockRow, BlockType, Song, SongBlocks } from './types';
-import { BLOCKS } from './types';
+import type { BlockRow, BlockType, CellKey, Song, SongBlocks } from './types';
+import { BLOCKS, isReposition } from './types';
 
 /**
  * Typed access to a block's value.
@@ -41,11 +41,21 @@ export function blockHasContent(song: Song, block: BlockType): boolean {
 }
 
 /**
+ * Whether a cell has anything to show — the band counts as filled exactly
+ * when the song has a during-song move.
+ */
+export function cellHasContent(song: Song, key: CellKey): boolean {
+  return isReposition(key)
+    ? song.repositionDuring.trim().length > 0
+    : blockHasContent(song, key);
+}
+
+/**
  * Blocks the song has content for that a given layout has nowhere to put.
  * Drives the "this song has content the template can't show" warning — the
  * cue that a per-song override is needed.
  */
-export function unplacedBlocks(song: Song, placed: BlockType[]): BlockType[] {
+export function unplacedBlocks(song: Song, placed: CellKey[]): BlockType[] {
   return (Object.keys(BLOCKS) as BlockType[]).filter(
     (b) => blockHasContent(song, b) && !placed.includes(b),
   );

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, resolveSession } from '../../lib/store';
 import type { GridCell, Playlist, Song } from '../../lib/types';
-import { BLOCKS, layoutFor } from '../../lib/types';
+import { cellLabel, isReposition, layoutFor } from '../../lib/types';
 import { GRID_VARS } from '../../lib/grid';
 import { BlockContent } from './blocks';
-import { blockHasContent } from '../../lib/blocks';
+import { cellHasContent } from '../../lib/blocks';
 import { useFitToBox } from '../../lib/fit';
 import { Interstitial } from './Interstitial';
 import { LiveTools } from './LiveTools';
@@ -143,7 +143,6 @@ export function LiveView() {
           </header>
 
           <div className="live-stage" onClick={next} role="presentation">
-            <RepoBand text={song.repositionDuring} />
             <SongGrid song={song} playlist={playlist} />
           </div>
         </>
@@ -206,25 +205,6 @@ function Rail({
 }
 
 /**
- * Fixed, dedicated spot for a during-song reposition. The band keeps its
- * height even when the song has no move, so the grid underneath never shifts
- * between songs.
- */
-function RepoBand({ text }: { text: string }) {
-  const on = Boolean(text.trim());
-  return (
-    <div className={on ? 'repo-band on' : 'repo-band'} aria-live="off">
-      {on && (
-        <>
-          <span className="tagword">Move</span>
-          <span className="txt">{text}</span>
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
  * Every song renders the playlist's default template, unless that song has
  * an override — which is the only thing allowed to change the geometry, and
  * only for that one song.
@@ -234,7 +214,7 @@ function SongGrid({ song, playlist }: { song: Song; playlist: Playlist }) {
   return (
     <div className="live-grid" style={GRID_VARS}>
       {layout.map((cell) =>
-        blockHasContent(song, cell.block) ? (
+        cellHasContent(song, cell.block) ? (
           <Cell key={cell.block} cell={cell} song={song} />
         ) : null,
       )}
@@ -248,15 +228,19 @@ function Cell({ cell, song }: { cell: GridCell; song: Song }) {
   );
   return (
     <div
-      className="cell"
+      className={isReposition(cell.block) ? 'cell repo-cell' : 'cell'}
       style={{
         gridColumn: `${cell.x + 1} / span ${cell.w}`,
         gridRow: `${cell.y + 1} / span ${cell.h}`,
       }}
     >
-      <div className="cell-label">{BLOCKS[cell.block].label}</div>
+      <div className="cell-label">{cellLabel(cell.block)}</div>
       <div className="cell-body" ref={ref}>
-        <BlockContent song={song} block={cell.block} />
+        {isReposition(cell.block) ? (
+          <div className="repo-text">{song.repositionDuring}</div>
+        ) : (
+          <BlockContent song={song} block={cell.block} />
+        )}
       </div>
     </div>
   );

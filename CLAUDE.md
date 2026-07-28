@@ -93,15 +93,26 @@ place this resolves, and both the live view and the editor go through it.
 It's a property of the transition, stored on the song as two independent
 strings (empty = none). A song may have both:
 
-- `repositionDuring` → renders in the fixed band above the grid, for the whole
-  song. There's no timecode to key a countdown off, so it is simply
-  always-visible.
+- `repositionDuring` → renders in the **reposition cell**, for the whole song.
+  There's no timecode to key a countdown off, so it is simply always-visible.
 - `repositionAfter` → renders as `Interstitial`, a full page between this song
   and the next.
 
-Adding a "reposition block" to `BlockType` would be a category error — these
-belong to transitions, not to song content, and they render in fixed regions
-that the grid config cannot move.
+Adding a "reposition block" to `BlockType` would still be a category error —
+these belong to transitions, not to song content. `repositionDuring` *is* laid
+out in the grid, but as a `CellKey` (`'reposition'`), not a `BlockType`: it has
+no `BLOCKS` entry, no editor of its own, and nothing you can type into it.
+
+**The reposition cell is placeable but never removable.** It can be moved and
+resized like anything else, and `ensureReposition()` puts it back on every
+layout write — `setLayout`, `setSongLayout`, `startOverride` and
+`toggleLayoutBlock` all go through it — so no default template and no per-song
+override can drop it. The editor's palette entry for it is locked for the same
+reason. A during-song move has to be visible for the whole song, and a
+guarantee enforced only in the UI is not a guarantee.
+
+When the song has no during-move the cell simply isn't rendered, like any
+empty block; the grid's explicit coordinates keep everything else in place.
 
 ### Navigation state machine (`next` / `prev` / `jumpTo` in `store.ts`)
 
@@ -135,8 +146,9 @@ Three mechanisms enforce this; all three are load-bearing:
    `layoutFor(playlist, song.id)`. A block with no content is *not rendered* (`blockHasContent`
    in `src/lib/blocks.ts`), leaving its space dark. Never switch to
    auto-placement, flex, or any "collapse empty cells" behaviour.
-2. **`.repo-band` keeps its height even when the song has no during-move.**
-   Collapsing it would shift the whole grid between songs.
+2. **Emptiness never moves anything.** This used to need a fixed-height
+   `.repo-band` strip above the grid; now the band is a cell and the grid's
+   explicit coordinates do the work, for it and every block alike.
 3. **`useFitToBox` in `src/lib/fit.ts`** shrinks cell content that a block is
    too small to hold, so a block never has to grow to fit its content.
    Binary search over a `--fit` multiplier, written straight to the DOM (no
@@ -284,7 +296,9 @@ stage. See the fit note below before adding a live text style.
   They're large, prep-only, and must stay out of the hot path and out of the
   ~5 MB localStorage budget.
 
-`src/lib/migrate.ts` converts persisted state on version bumps. Prep data sits
+`src/lib/migrate.ts` converts persisted state on version bumps. Steps are
+cumulative — `migrate` runs every step above the stored version, so v1 data
+goes through v1→v2 *and* v2→v3. Prep data sits
 on a working device between shows, so a schema change must **convert, never
 reset** — losing a show's prep to an app update is the worst failure this app
 has. Every step has to survive partially-shaped data; anything unrecognised

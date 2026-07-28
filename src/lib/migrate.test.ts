@@ -62,6 +62,11 @@ function run(): Project[] {
   return out.projects;
 }
 
+/** A layout's blocks, ignoring the reposition cell every layout now carries. */
+function blocksOf(layout: Project['playlists'][number]['layout']) {
+  return layout.filter((c) => c.block !== 'reposition').map((c) => c.block);
+}
+
 describe('v1 -> v2 migration', () => {
   it('keeps the show: project, songs, playlists and running order', () => {
     const [p] = run();
@@ -96,24 +101,27 @@ describe('v1 -> v2 migration', () => {
   it('gives every playlist the old project-wide template, so nothing moves', () => {
     const [p] = run();
     for (const pl of p.playlists) {
-      expect(pl.layout.map((c) => c.block)).toEqual(['presets', 'note']);
+      expect(blocksOf(pl.layout)).toEqual(['presets', 'note']);
       expect(pl.overrides).toEqual({});
     }
   });
 
-  it('rescales the old 12x8 grid into 16x12 with the same proportions', () => {
+  it('rescales the old 12x8 grid and keeps every cell in bounds', () => {
     const [p] = run();
-    const [presets, note] = p.playlists[0].layout;
-    // 6/12 wide and 5/8 tall -> 8/16 wide and 8/12 tall.
-    expect(presets).toEqual({ block: 'presets', x: 0, y: 0, w: 8, h: 8 });
-    // Bottom-right cell stays in bounds.
-    expect(note.x + note.w).toBeLessThanOrEqual(GRID_COLS);
-    expect(note.y + note.h).toBeLessThanOrEqual(GRID_ROWS);
+    for (const cell of p.playlists[0].layout) {
+      expect(cell.x + cell.w).toBeLessThanOrEqual(GRID_COLS);
+      expect(cell.y + cell.h).toBeLessThanOrEqual(GRID_ROWS);
+      expect(cell.w).toBeGreaterThan(0);
+      expect(cell.h).toBeGreaterThan(0);
+    }
+    // 6/12 of the old width is still half the new one.
+    const presets = p.playlists[0].layout.find((c) => c.block === 'presets')!;
+    expect(presets.w).toBe(8);
   });
 
   it('does not re-run against already-migrated state', () => {
     const already = { projects: [{ id: 'p_9', name: 'New', songs: [], playlists: [], createdAt: 1 }] };
-    expect(migrate(already, 2)).toBe(already);
+    expect(migrate(already, 3)).toBe(already);
   });
 
   it('survives junk instead of throwing', () => {

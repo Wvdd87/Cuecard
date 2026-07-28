@@ -7,12 +7,15 @@ import { uid, today } from './util';
  * Grid is 16 x 12.
  */
 export const DEFAULT_LAYOUT: GridCell[] = [
-  { block: 'presets', x: 0, y: 0, w: 8, h: 6 },
-  { block: 'firstShots', x: 8, y: 0, w: 8, h: 6 },
-  { block: 'camScreen', x: 0, y: 6, w: 8, h: 4 },
-  { block: 'instruments', x: 8, y: 6, w: 8, h: 3 },
+  // The reposition band leads, where the fixed strip used to sit. It can be
+  // moved and resized from here, but never removed.
+  { block: 'reposition', x: 0, y: 0, w: 16, h: 2 },
+  { block: 'presets', x: 0, y: 2, w: 8, h: 5 },
+  { block: 'firstShots', x: 8, y: 2, w: 8, h: 5 },
+  { block: 'camScreen', x: 0, y: 7, w: 8, h: 3 },
+  { block: 'instruments', x: 8, y: 7, w: 8, h: 3 },
   { block: 'intro', x: 0, y: 10, w: 8, h: 2 },
-  { block: 'ending', x: 8, y: 9, w: 8, h: 3 },
+  { block: 'ending', x: 8, y: 10, w: 8, h: 2 },
 ];
 
 export function emptyBlocks(): SongBlocks {
@@ -124,13 +127,14 @@ export function demoProject(): Project {
   // Halogen carries more content than the default template holds comfortably,
   // so it ships with an override — the feature, demonstrated.
   show.overrides[song2.id] = [
-    { block: 'presets', x: 0, y: 0, w: 6, h: 5 },
-    { block: 'firstShots', x: 6, y: 0, w: 10, h: 5 },
-    { block: 'solos', x: 0, y: 5, w: 6, h: 3 },
-    { block: 'hits', x: 6, y: 5, w: 10, h: 3 },
-    { block: 'instruments', x: 0, y: 8, w: 6, h: 4 },
-    { block: 'energy', x: 6, y: 8, w: 5, h: 4 },
-    { block: 'ending', x: 11, y: 8, w: 5, h: 4 },
+    { block: 'reposition', x: 0, y: 0, w: 16, h: 2 },
+    { block: 'presets', x: 0, y: 2, w: 6, h: 4 },
+    { block: 'firstShots', x: 6, y: 2, w: 10, h: 4 },
+    { block: 'solos', x: 0, y: 6, w: 6, h: 3 },
+    { block: 'hits', x: 6, y: 6, w: 10, h: 3 },
+    { block: 'instruments', x: 0, y: 9, w: 6, h: 3 },
+    { block: 'energy', x: 6, y: 9, w: 5, h: 3 },
+    { block: 'ending', x: 11, y: 9, w: 5, h: 3 },
   ];
   p.playlists = [show];
 

@@ -3,6 +3,12 @@ import { useStore, resolveSession } from './store';
 import { newPlaylist, newProject, newSong } from './defaults';
 import type { Project } from './types';
 import { hasOverride, layoutFor } from './types';
+import type { GridCell } from './types';
+import { BLOCK_TYPES } from './types';
+import { cellHasContent } from './blocks';
+
+/** Cells other than the reposition band, which every layout now carries. */
+const blocksOf = (l: GridCell[]) => l.filter((c) => c.block !== 'reposition');
 
 /**
  * The navigation rules are the part of this app that must not misbehave in
@@ -214,7 +220,7 @@ describe('templates and per-song overrides', () => {
       ]);
 
     const pl = useStore.getState().projects[0].playlists[0];
-    expect(layoutFor(pl, target)).toHaveLength(1);
+    expect(blocksOf(layoutFor(pl, target))).toHaveLength(1);
     expect(pl.layout).toEqual(before);
     for (const other of [0, 2, 3]) {
       expect(layoutFor(pl, project.songs[other].id)).toEqual(before);
@@ -243,7 +249,7 @@ describe('templates and per-song overrides', () => {
     useStore.getState().startOverride(project.id, playlistId, target);
 
     expect(
-      useStore.getState().projects[0].playlists[0].overrides[target],
+      blocksOf(useStore.getState().projects[0].playlists[0].overrides[target]),
     ).toEqual(mine);
   });
 
@@ -290,5 +296,83 @@ describe('templates and per-song overrides', () => {
     expect(hasOverride(copy, target)).toBe(true);
     expect(copy.layout.some((c) => c.block === 'energy')).toBe(true);
     expect(original.layout.some((c) => c.block === 'energy')).toBe(false);
+  });
+});
+
+describe('the reposition band is placeable but guaranteed', () => {
+  const hasBand = (l: GridCell[]) => l.some((c) => c.block === 'reposition');
+
+  it('is in the default template', () => {
+    const { project } = scaffold();
+    expect(hasBand(project.playlists[0].layout)).toBe(true);
+  });
+
+  it('can be moved and resized like any other cell', () => {
+    const { project, playlistId } = scaffold();
+    useStore.setState({ projects: [project] });
+    const moved = project.playlists[0].layout.map((c) =>
+      c.block === 'reposition' ? { ...c, x: 4, y: 9, w: 6, h: 3 } : c,
+    );
+
+    useStore.getState().setLayout(project.id, playlistId, moved);
+
+    const band = useStore
+      .getState()
+      .projects[0].playlists[0].layout.find((c) => c.block === 'reposition')!;
+    expect(band).toMatchObject({ x: 4, y: 9, w: 6, h: 3 });
+  });
+
+  it('comes back if a layout is written without it', () => {
+    const { project, playlistId } = scaffold();
+    useStore.setState({ projects: [project] });
+    const stripped = project.playlists[0].layout.filter(
+      (c) => c.block !== 'reposition',
+    );
+
+    useStore.getState().setLayout(project.id, playlistId, stripped);
+
+    expect(hasBand(useStore.getState().projects[0].playlists[0].layout)).toBe(true);
+  });
+
+  it('cannot be dropped by a per-song override either', () => {
+    const { project, playlistId } = scaffold();
+    useStore.setState({ projects: [project] });
+    const target = project.songs[0].id;
+
+    useStore
+      .getState()
+      .setSongLayout(project.id, playlistId, target, [
+        { block: 'hits', x: 0, y: 0, w: 4, h: 4 },
+      ]);
+
+    const pl = useStore.getState().projects[0].playlists[0];
+    expect(hasBand(pl.overrides[target])).toBe(true);
+    expect(hasBand(layoutFor(pl, target))).toBe(true);
+  });
+
+  it('survives removing every block from a template', () => {
+    const { project, playlistId } = scaffold();
+    useStore.setState({ projects: [project] });
+
+    for (const b of BLOCK_TYPES) {
+      useStore.getState().toggleLayoutBlock(project.id, playlistId, b);
+      useStore.getState().toggleLayoutBlock(project.id, playlistId, b);
+    }
+    // Toggle each placed block off for good.
+    const pl0 = useStore.getState().projects[0].playlists[0];
+    for (const c of pl0.layout.filter((c) => c.block !== 'reposition')) {
+      useStore
+        .getState()
+        .toggleLayoutBlock(project.id, playlistId, c.block as (typeof BLOCK_TYPES)[number]);
+    }
+
+    const pl = useStore.getState().projects[0].playlists[0];
+    expect(hasBand(pl.layout)).toBe(true);
+  });
+
+  it('shows exactly when the song has a during-song move', () => {
+    const { project } = scaffold({ during: [1] });
+    expect(cellHasContent(project.songs[0], 'reposition')).toBe(false);
+    expect(cellHasContent(project.songs[1], 'reposition')).toBe(true);
   });
 });
