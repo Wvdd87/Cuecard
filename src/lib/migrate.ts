@@ -1,4 +1,4 @@
-import type { BlockRow, GridCell, Project } from './types';
+import type { BlockRow, GridCell, Project, ScreenRow } from './types';
 import { GRID_COLS, GRID_ROWS, REPOSITION, repositionCell } from './types';
 import { DEFAULT_LAYOUT, emptyBlocks } from './defaults';
 import { uid } from './util';
@@ -12,7 +12,7 @@ import { uid } from './util';
  * an empty value rather than throwing.
  */
 
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
 
 interface LegacyRow {
   id?: string;
@@ -50,6 +50,18 @@ function toRows(legacy: unknown, b: 'preset' | 'screen' | 'shot'): BlockRow[] {
 }
 
 /**
+ * A cam→screen pair becomes a screen with one segment: "camera 1 feeds LED L"
+ * is the same statement as "LED L shows camera 1 for the whole song".
+ */
+function toScreens(rows: BlockRow[]): ScreenRow[] {
+  return rows.map((r) => ({
+    id: r.id,
+    screen: r.b,
+    segments: [{ id: uid(), source: r.a, span: 1 }],
+  }));
+}
+
+/**
  * v1 -> v2
  *  - row blocks move from named fields (cam/preset/screen/shot) to positional
  *    a/b/c, so a new row-shaped block needs no new type
@@ -83,7 +95,7 @@ function v1ToV2(projects: unknown): Project[] {
           blocks: {
             ...emptyBlocks(),
             presets: toRows(b.presets, 'preset'),
-            camScreen: toRows(b.camScreen, 'screen'),
+            camScreen: toScreens(toRows(b.camScreen, 'screen')),
             firstShots: toRows(b.firstShots, 'shot'),
             instruments: Array.isArray(b.instruments)
               ? (b.instruments as string[])
@@ -159,6 +171,45 @@ function v2ToV3(projects: unknown): Project[] {
   }));
 }
 
+/**
+ * v3 -> v4
+ *  - a screen stops being a single camera and becomes a timeline of sources,
+ *    because a screen is often fed by a switcher bus (PGM, ME1) and can change
+ *    source part-way through a song
+ *
+ * An existing "camera 1 feeds LED L" is exactly a screen with one segment, so
+ * nothing is lost or guessed at.
+ */
+function v3ToV4(projects: unknown): Project[] {
+  if (!Array.isArray(projects)) return projects as Project[];
+
+  return (projects as Project[]).map((p) => ({
+    ...p,
+    songs: (p.songs ?? []).map((song) => {
+      const cs = song.blocks?.camScreen as unknown;
+      if (!Array.isArray(cs)) return song;
+      // Already a timeline? Leave it.
+      const rows = cs as (BlockRow & Partial<ScreenRow>)[];
+      if (rows.every((r) => Array.isArray(r.segments))) return song;
+      return {
+        ...song,
+        blocks: {
+          ...song.blocks,
+          camScreen: rows.map((r) =>
+            Array.isArray(r.segments)
+              ? (r as unknown as ScreenRow)
+              : {
+                  id: r.id ?? uid(),
+                  screen: r.b ?? '',
+                  segments: [{ id: uid(), source: r.a ?? '', span: 1 }],
+                },
+          ),
+        },
+      };
+    }),
+  }));
+}
+
 export function migrate(persisted: unknown, version: number): unknown {
   const state = (persisted ?? {}) as Record<string, unknown>;
   if (version >= STORE_VERSION) return state;
@@ -166,5 +217,6 @@ export function migrate(persisted: unknown, version: number): unknown {
   let projects = state.projects;
   if (version < 2) projects = v1ToV2(projects);
   if (version < 3) projects = v2ToV3(projects);
+  if (version < 4) projects = v3ToV4(projects);
   return { ...state, projects };
 }

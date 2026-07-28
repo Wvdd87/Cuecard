@@ -1,6 +1,7 @@
 import type { BlockType, Song } from '../../lib/types';
 import { BLOCKS } from '../../lib/types';
-import { rowsOf, tagsOf, lineOf } from '../../lib/blocks';
+import { rowsOf, tagsOf, lineOf, screensOf } from '../../lib/blocks';
+import { sourceFill, sourceLabel } from '../../lib/source';
 import { CameraBadge } from '../CameraBadge';
 
 /**
@@ -52,6 +53,37 @@ export function BlockContent({
 
     case 'line':
       return <div className="linetext">{lineOf(song.blocks, block)}</div>;
+
+    /*
+     * Screens are timelines: the screen on the left, then what feeds it
+     * across the song. Segment widths are relative — there is no clock to
+     * place them against — so they read as "this, then this", which is
+     * exactly as precise as the operator's own sense of the song.
+     */
+    case 'screens':
+      return (
+        <div className="screens">
+          {screensOf(song.blocks, block).map((r) => (
+            <Fragmentish key={r.id}>
+              <div className="screen-name">{r.screen}</div>
+              <div className="screen-track">
+                {r.segments.map((sg) => {
+                  const fill = sourceFill(sg.source);
+                  return (
+                    <span
+                      key={sg.id}
+                      className="screen-seg"
+                      style={{ ...fill, flexGrow: Math.max(1, sg.span) }}
+                    >
+                      {sourceLabel(sg.source)}
+                    </span>
+                  );
+                })}
+              </div>
+            </Fragmentish>
+          ))}
+        </div>
+      );
   }
 }
 

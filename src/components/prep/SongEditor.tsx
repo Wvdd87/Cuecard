@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../lib/store';
-import type { BlockGroup, BlockRow, BlockType, Song } from '../../lib/types';
+import type {
+  BlockGroup,
+  BlockRow,
+  BlockType,
+  ScreenRow,
+  Song,
+} from '../../lib/types';
 import { BLOCKS, BLOCK_GROUPS, blocksInGroup } from '../../lib/types';
-import { rowsOf, tagsOf, lineOf } from '../../lib/blocks';
+import { rowsOf, tagsOf, lineOf, screensOf } from '../../lib/blocks';
 import { cameraColor } from '../../lib/camera';
+import { sourceFill } from '../../lib/source';
 import { uid } from '../../lib/util';
 import { deleteImage, fileToDataUrl, getImage, putImage } from '../../lib/images';
 
@@ -20,8 +27,10 @@ export function SongEditor({
 }) {
   const updateSong = useStore((s) => s.updateSong);
   const set = (patch: Partial<Song>) => updateSong(projectId, song.id, patch);
-  const setBlock = (block: BlockType, value: BlockRow[] | string[] | string) =>
-    set({ blocks: { ...song.blocks, [block]: value } });
+  const setBlock = (
+    block: BlockType,
+    value: BlockRow[] | ScreenRow[] | string[] | string,
+  ) => set({ blocks: { ...song.blocks, [block]: value } });
 
   return (
     <div className="section" style={{ maxWidth: 760 }}>
@@ -93,7 +102,10 @@ function Group({
 }: {
   group: BlockGroup;
   song: Song;
-  setBlock: (b: BlockType, v: BlockRow[] | string[] | string) => void;
+  setBlock: (
+    b: BlockType,
+    v: BlockRow[] | ScreenRow[] | string[] | string,
+  ) => void;
 }) {
   return (
     <>
@@ -128,6 +140,15 @@ function Group({
                 key={block}
                 block={block}
                 value={lineOf(song.blocks, block)}
+                onChange={(v) => setBlock(block, v)}
+              />
+            );
+          case 'screens':
+            return (
+              <ScreensBlock
+                key={block}
+                block={block}
+                screens={screensOf(song.blocks, block)}
                 onChange={(v) => setBlock(block, v)}
               />
             );
@@ -231,6 +252,119 @@ function RowsBlock({
         >
           + row
         </button>
+      </div>
+    </BlockCard>
+  );
+}
+
+/**
+ * Screens editor. Each row is a screen and the ordered sources that feed it,
+ * shown as the same timeline the live view draws — a source field fills with
+ * that source's colour as soon as it is recognised, so the bar you build here
+ * is the bar you read in the room.
+ */
+function ScreensBlock({
+  block,
+  screens,
+  onChange,
+}: {
+  block: BlockType;
+  screens: ScreenRow[];
+  onChange: (s: ScreenRow[]) => void;
+}) {
+  const patch = (i: number, next: Partial<ScreenRow>) =>
+    onChange(screens.map((r, j) => (j === i ? { ...r, ...next } : r)));
+
+  const addScreen = () =>
+    onChange([
+      ...screens,
+      { id: uid(), screen: '', segments: [{ id: uid(), source: '', span: 1 }] },
+    ]);
+
+  return (
+    <BlockCard block={block}>
+      <div className="editor-rows">
+        {screens.map((r, i) => (
+          <div key={r.id} className="screen-edit">
+            <input
+              className="cell-input screen-input"
+              placeholder="SCREEN"
+              value={r.screen}
+              onChange={(e) => patch(i, { screen: e.target.value })}
+            />
+
+            <div className="seg-track">
+              {r.segments.map((sg, j) => {
+                const fill = sourceFill(sg.source);
+                const known = sg.source.trim().length > 0;
+                return (
+                  <span key={sg.id} className="seg-edit">
+                    <input
+                      value={sg.source}
+                      placeholder="SRC"
+                      aria-label="Source"
+                      style={known ? fill : undefined}
+                      onChange={(e) =>
+                        patch(i, {
+                          segments: r.segments.map((x, k) =>
+                            k === j ? { ...x, source: e.target.value } : x,
+                          ),
+                        })
+                      }
+                    />
+                    {r.segments.length > 1 && (
+                      <button
+                        className="seg-x"
+                        aria-label="Remove segment"
+                        onClick={() =>
+                          patch(i, {
+                            segments: r.segments.filter((_, k) => k !== j),
+                          })
+                        }
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+              <button
+                className="cf-btn sm ghost seg-add"
+                title="Add a later stretch of this song"
+                onClick={() =>
+                  patch(i, {
+                    segments: [
+                      ...r.segments,
+                      { id: uid(), source: '', span: 1 },
+                    ],
+                  })
+                }
+              >
+                + then
+              </button>
+            </div>
+
+            <button
+              className="icon-x"
+              aria-label="Remove screen"
+              onClick={() => onChange(screens.filter((_, j) => j !== i))}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          className="cf-btn sm"
+          style={{ alignSelf: 'flex-start', marginTop: 2 }}
+          onClick={addScreen}
+        >
+          + screen
+        </button>
+        <div className="help" style={{ marginTop: 2 }}>
+          A source is a camera number, or a switcher bus like PGM or ME1. Only
+          cameras take a colour — buses stay neutral, because the eight camera
+          hues mean nothing else in this app.
+        </div>
       </div>
     </BlockCard>
   );

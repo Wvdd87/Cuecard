@@ -1,4 +1,12 @@
-import type { BlockRow, GridCell, Playlist, Project, Song, SongBlocks } from './types';
+import type {
+  BlockRow,
+  GridCell,
+  Playlist,
+  Project,
+  ScreenRow,
+  Song,
+  SongBlocks,
+} from './types';
 import { uid, today } from './util';
 
 /**
@@ -72,6 +80,15 @@ function row(a: string, b: string, c = ''): BlockRow {
   return { id: uid(), a, b, c };
 }
 
+/** A screen and the sources that feed it, in order across the song. */
+function screen(name: string, ...sources: string[]): ScreenRow {
+  return {
+    id: uid(),
+    screen: name,
+    segments: sources.map((source) => ({ id: uid(), source, span: 1 })),
+  };
+}
+
 /**
  * A small worked example so a new install shows the shape of the thing
  * instead of an empty screen. Deletable like any other project.
@@ -87,7 +104,13 @@ export function demoProject(): Project {
     row('3', 'CU HANDS KEYS'),
     row('4', 'CRANE HIGH'),
   ];
-  song1.blocks.camScreen = [row('1', 'LED L'), row('2', 'CENTRE'), row('4', 'LED R')];
+  song1.blocks.camScreen = [
+    // The left screen cuts between two cameras across the song; the right one
+    // mirrors the programme bus the whole way through.
+    screen('LED L', '4', '3', '4'),
+    screen('CENTRE', '2'),
+    screen('LED R', 'PGM'),
+  ];
   song1.blocks.instruments = ['VOX', 'KEYS L'];
   song1.blocks.intro = 'Cold open, keys only';
   song1.blocks.ending = 'Hard stop on the downbeat';
@@ -106,7 +129,7 @@ export function demoProject(): Project {
   const song3 = newSong('Ten Thousand Rooms');
   song3.blocks.presets = [row('2', 'P6'), row('4', 'P3')];
   song3.blocks.firstShots = [row('1', 'WIDE'), row('2', 'CU VOX'), row('4', 'JIB SWEEP')];
-  song3.blocks.camScreen = [row('2', 'ALL')];
+  song3.blocks.camScreen = [screen('ALL', 'ME1', '2')];
   song3.blocks.instruments = ['VOX', 'STRINGS'];
   song3.blocks.intro = 'Strings pad, 8 bars';
   song3.blocks.ending = 'Ritardando, long hold';

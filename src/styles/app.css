@@ -487,6 +487,29 @@ input, textarea, select { font: inherit; }
 }
 .codetable .band { background: rgba(255, 255, 255, 0.03); }
 
+/*
+ * Screens block. Screen name in a fixed column, then the timeline of what
+ * feeds it — the whole point is that the eye runs left to right along one
+ * screen's life through the song.
+ */
+.screens {
+  display: grid; grid-template-columns: max-content 1fr;
+  align-content: start; gap: 0.3em 0.7em; width: 100%;
+  font-size: calc(clamp(15px, 1.6vw, 26px) * var(--tier-scale, 1) * var(--fit, 1));
+}
+.screen-name {
+  font-family: var(--mono); font-weight: var(--w-semibold); color: var(--txt-hi);
+  white-space: nowrap; align-self: center;
+}
+.screen-track { display: flex; gap: 2px; min-width: 0; align-items: stretch; }
+.screen-seg {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 0; padding: 0.18em 0.35em;
+  font-family: var(--mono); font-weight: var(--w-black); letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums; font-size: 0.8em;
+  white-space: nowrap; overflow: hidden;
+}
+
 /* Tags block */
 .tagrow {
   display: flex; flex-wrap: wrap; gap: 0.35em 0.4em;
@@ -558,3 +581,35 @@ input, textarea, select { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ── Screens editor ──────────────────────────────────────────────
+   The same timeline the live view draws, made editable: screen name,
+   then the ordered sources that feed it across the song. */
+
+.screen-edit {
+  display: grid; grid-template-columns: 120px 1fr 28px;
+  gap: 6px; align-items: center;
+}
+.screen-input { text-transform: uppercase; }
+
+.seg-track { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.seg-edit { position: relative; display: inline-flex; align-items: center; }
+.seg-edit input {
+  width: 74px; height: 32px; padding: 0 var(--s-2); text-align: center;
+  background: var(--surface2); border: 1px solid var(--hair2); outline: none;
+  font-family: var(--mono); font-weight: var(--w-black); font-size: 13px;
+  letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+  color: var(--txt-hi); text-transform: uppercase;
+}
+.seg-edit input::placeholder { color: var(--txt-low); font-weight: var(--w-bold); }
+.seg-edit input:focus { box-shadow: var(--focus); }
+.seg-x {
+  position: absolute; top: -6px; right: -6px; width: 16px; height: 16px;
+  display: grid; place-items: center; background: var(--surface3);
+  border: 1px solid var(--hair3); color: var(--txt-mid);
+  font-size: 9px; line-height: 1; cursor: pointer; opacity: 0;
+}
+.seg-edit:hover .seg-x,
+.seg-x:focus-visible { opacity: 1; }
+.seg-x:hover { color: var(--danger); border-color: var(--danger); }
+.seg-add { flex: none; }

@@ -47,9 +47,15 @@ say exactly what goes where and how much room it gets.
 
 | Group | Blocks |
 |---|---|
-| Cameras | Presets, First shots, Cam → Screen |
+| Cameras | Presets, First shots, Screens |
 | Watch | Watch, Solos, Hits |
 | Structure | Intro, Ending, Energy, Avoid, Note |
+
+**Screens** is a timeline rather than a list: each screen shows the sources
+that feed it in order across the song — "LED L is camera 4, then 3, then 4
+again; LED R is PGM all song". A source is a camera number or a switcher bus
+(PGM, ME1, …). Cameras carry their reserved hue; buses stay neutral, because
+those eight hues mean "camera" and nothing else.
 
 Structure is what would otherwise be one "notes" block. Split, because a
 paragraph is unreadable in half a second and "the ending" is a different

@@ -80,7 +80,9 @@ describe('v1 -> v2 migration', () => {
     const [p] = run();
     const b = p.songs[0].blocks;
     expect(b.presets[0]).toMatchObject({ a: '1', b: 'P2', c: 'wide' });
-    expect(b.camScreen[0]).toMatchObject({ a: '2', b: 'LED L' });
+    // A cam→screen pair becomes a screen with one segment.
+    expect(b.camScreen[0]).toMatchObject({ screen: 'LED L' });
+    expect(b.camScreen[0].segments).toMatchObject([{ source: '2', span: 1 }]);
     expect(b.firstShots[0]).toMatchObject({ a: '3', b: 'CU VOX' });
   });
 
@@ -121,7 +123,7 @@ describe('v1 -> v2 migration', () => {
 
   it('does not re-run against already-migrated state', () => {
     const already = { projects: [{ id: 'p_9', name: 'New', songs: [], playlists: [], createdAt: 1 }] };
-    expect(migrate(already, 3)).toBe(already);
+    expect(migrate(already, 4)).toBe(already);
   });
 
   it('survives junk instead of throwing', () => {
@@ -130,5 +132,82 @@ describe('v1 -> v2 migration', () => {
     const partial = migrate({ projects: [{ id: 'p' }] }, 1) as { projects: Project[] };
     expect(partial.projects[0].songs).toEqual([]);
     expect(partial.projects[0].playlists).toEqual([]);
+  });
+});
+
+describe('v3 -> v4: screens become timelines', () => {
+  /** A v3 project: screens are still one camera per row. */
+  const v3 = {
+    projects: [
+      {
+        id: 'p_1',
+        name: 'Tour',
+        createdAt: 1,
+        songs: [
+          {
+            id: 's_1',
+            title: 'Opener',
+            blocks: {
+              presets: [],
+              firstShots: [],
+              camScreen: [
+                { id: 'r1', a: '4', b: 'LED L', c: '' },
+                { id: 'r2', a: '2', b: 'CENTRE', c: '' },
+              ],
+              instruments: [],
+              solos: [],
+              hits: [],
+              intro: '',
+              ending: '',
+              energy: '',
+              avoid: '',
+              note: '',
+            },
+            repositionDuring: '',
+            repositionAfter: '',
+            hasImage: false,
+            updatedAt: 1,
+          },
+        ],
+        playlists: [
+          {
+            id: 'pl_1',
+            name: 'Night',
+            date: '2026-05-02',
+            songIds: ['s_1'],
+            layout: [{ block: 'reposition', x: 0, y: 0, w: 16, h: 2 }],
+            overrides: {},
+            createdAt: 1,
+          },
+        ],
+      },
+    ],
+  };
+
+  const run = () =>
+    (migrate(structuredClone(v3), 3) as { projects: Project[] }).projects;
+
+  it('turns each cam→screen pair into a screen with one segment', () => {
+    const [p] = run();
+    const cs = p.songs[0].blocks.camScreen;
+    expect(cs).toHaveLength(2);
+    expect(cs[0]).toMatchObject({ screen: 'LED L' });
+    expect(cs[0].segments).toMatchObject([{ source: '4', span: 1 }]);
+    expect(cs[1]).toMatchObject({ screen: 'CENTRE' });
+    expect(cs[1].segments).toMatchObject([{ source: '2', span: 1 }]);
+  });
+
+  it('leaves an already-converted timeline alone', () => {
+    const already = structuredClone(v3) as unknown as {
+      projects: { songs: { blocks: { camScreen: unknown } }[] }[];
+    };
+    // Deliberately already v4-shaped, to prove the step is idempotent.
+    already.projects[0].songs[0].blocks.camScreen = [
+      { id: 'x', screen: 'LED R', segments: [{ id: 'g', source: 'PGM', span: 1 }] },
+    ];
+    const out = (migrate(already, 3) as { projects: Project[] }).projects;
+    expect(out[0].songs[0].blocks.camScreen[0].segments).toMatchObject([
+      { source: 'PGM' },
+    ]);
   });
 });

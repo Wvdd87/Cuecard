@@ -62,11 +62,24 @@ pointing at a deleted song must degrade, never crash.
 ### The block library is a spec table
 
 `BLOCKS` in `src/lib/types.ts` is the single source of truth: label, prep hint,
-`kind` (`rows` | `tags` | `line`), group, and column layout. Rendering
+`kind` (`rows` | `tags` | `line` | `screens`), group, and column layout. Rendering
 (`components/live/blocks.tsx`), editing (`prep/SongEditor.tsx`), the palette,
 and the PDF all switch on `kind`, so **adding a block is a table entry plus a
 field on `SongBlocks` plus a migration** — never new rendering code. Row blocks
 share one positional `BlockRow { id, a, b, c }` shape for the same reason.
+
+**Screens are timelines, not rows.** `camScreen` is `ScreenRow[]`: a screen
+plus the ordered `ScreenSegment`s that feed it across the song. A segment's
+source is a camera number *or* a switcher bus (PGM, ME1, …), because a screen
+often mirrors a bus rather than one fixed camera, and it can change part-way
+through a song. Segments carry a relative `span`, never a time — there is no
+clock to place them against, so equal spans read as "this, then this".
+
+`src/lib/source.ts` decides how a source paints: **cameras get their locked
+hue; buses deliberately do not.** The eight camera hues are reserved for
+cameras alone, so giving PGM one would break the thing that lets an operator
+read "camera 3" off a colour. Buses fill with neutral steps and are told apart
+by their label. Do not "improve" this by handing buses a colour.
 
 Blocks are deliberately small and specific. If you find yourself adding a
 general-purpose "notes" or "other" block, that's the thing this design exists

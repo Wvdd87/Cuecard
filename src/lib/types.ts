@@ -35,7 +35,7 @@ export type BlockType =
   | 'note';
 
 /** How a block stores and renders its content. */
-export type BlockKind = 'rows' | 'tags' | 'line';
+export type BlockKind = 'rows' | 'tags' | 'line' | 'screens';
 
 export type BlockGroup = 'Cameras' | 'Watch' | 'Structure';
 
@@ -75,14 +75,10 @@ export const BLOCKS: Record<BlockType, BlockSpec> = {
     ],
   },
   camScreen: {
-    label: 'Cam → Screen',
-    hint: 'Which camera feeds which screen.',
-    kind: 'rows',
+    label: 'Screens',
+    hint: 'What feeds each screen, and when it changes. A camera number, or a switcher bus like PGM or ME1.',
+    kind: 'screens',
     group: 'Cameras',
-    cols: [
-      { key: 'a', placeholder: 'CAM', width: 70 },
-      { key: 'b', placeholder: 'SCREEN' },
-    ],
   },
 
   instruments: {
@@ -160,10 +156,34 @@ export interface BlockRow {
   c: string;
 }
 
+/**
+ * One stretch of a song during which a screen shows a single source.
+ *
+ * There is no timecode to place these against, so a segment carries an
+ * ordering and a relative weight, never a time. Equal weights read as "this,
+ * then this, then this" — which is exactly as precise as the operator's own
+ * knowledge of the song.
+ */
+export interface ScreenSegment {
+  id: string;
+  /** A camera number ("4") or a switcher bus ("PGM", "ME1"). */
+  source: string;
+  /** Relative width. 1 unless the operator wants to weight a stretch. */
+  span: number;
+}
+
+/** A screen and what feeds it across the song. */
+export interface ScreenRow {
+  id: string;
+  screen: string;
+  segments: ScreenSegment[];
+}
+
 export interface SongBlocks {
   presets: BlockRow[];
   firstShots: BlockRow[];
-  camScreen: BlockRow[];
+  /** Screens are timelines, not rows — see ScreenRow. */
+  camScreen: ScreenRow[];
   instruments: string[];
   solos: string[];
   hits: string[];

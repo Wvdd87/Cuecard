@@ -1,7 +1,8 @@
 import type { jsPDF } from 'jspdf';
 import type { BlockType, Playlist, Project, Song } from './types';
 import { BLOCKS, BLOCK_TYPES } from './types';
-import { blockHasContent, lineOf, rowsOf, tagsOf } from './blocks';
+import { blockHasContent, lineOf, rowsOf, screensOf, tagsOf } from './blocks';
+import { sourceLabel } from './source';
 import { playlistSongs } from './store';
 import { formatDate } from './util';
 
@@ -268,5 +269,14 @@ function pdfRows(song: Song, block: BlockType): string[] {
       return tagsOf(song.blocks, block);
     case 'line':
       return [lineOf(song.blocks, block)];
+    case 'screens':
+      // Paper spells the timeline out left to right; a coloured bar is no use
+      // under a torch, but "LED L: 04 > 03 > 04" is.
+      return screensOf(song.blocks, block).map((r) => {
+        const seq = r.segments
+          .map((sg) => sourceLabel(sg.source))
+          .join(' > ');
+        return `${(r.screen || '-').padEnd(8, ' ')}${seq}`;
+      });
   }
 }

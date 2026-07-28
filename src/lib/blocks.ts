@@ -1,4 +1,11 @@
-import type { BlockRow, BlockType, CellKey, Song, SongBlocks } from './types';
+import type {
+  BlockRow,
+  BlockType,
+  CellKey,
+  ScreenRow,
+  Song,
+  SongBlocks,
+} from './types';
 import { BLOCKS, isReposition } from './types';
 
 /**
@@ -24,6 +31,11 @@ export function lineOf(blocks: SongBlocks, block: BlockType): string {
   return typeof v === 'string' ? v : '';
 }
 
+export function screensOf(blocks: SongBlocks, block: BlockType): ScreenRow[] {
+  const v = blocks[block];
+  return Array.isArray(v) ? (v as ScreenRow[]) : [];
+}
+
 /**
  * Whether a song has anything to show for a block. Empty blocks are omitted
  * from the live view entirely — their grid space is simply left dark rather
@@ -37,6 +49,10 @@ export function blockHasContent(song: Song, block: BlockType): boolean {
       return tagsOf(song.blocks, block).length > 0;
     case 'line':
       return lineOf(song.blocks, block).trim().length > 0;
+    case 'screens':
+      return screensOf(song.blocks, block).some(
+        (r) => r.screen.trim() || r.segments.some((sg) => sg.source.trim()),
+      );
   }
 }
 
