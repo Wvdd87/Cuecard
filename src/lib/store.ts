@@ -1,21 +1,27 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
-  BlockType,
+  CameraDefinition,
+  CardType,
   Display,
-  GridCell,
+  MilestonePin,
   Playlist,
   Project,
   Session,
   Song,
+  TrackBlock,
+  TrackDefinition,
 } from './types';
-import { GRID_COLS, GRID_ROWS, ensureReposition } from './types';
+import { normaliseWidths } from './types';
 import {
-  DEFAULT_LAYOUT,
+  CAMERA_COLORS,
+  TRACK_COLORS,
   demoProject,
+  newCamera,
   newPlaylist,
   newProject,
   newSong,
+  newTrack,
 } from './defaults';
 import { migrate, STORE_VERSION } from './migrate';
 import { clamp, move, today, uid } from './util';
@@ -24,8 +30,6 @@ import { clamp, move, today, uid } from './util';
  * Everything except reference images lives in localStorage.
  * localStorage is synchronous, so a reload paints the restored live view on
  * the first frame — no loading state, no flash, no network round-trip.
- * Images are large and live-view-irrelevant, so they go to IndexedDB
- * (see lib/images.ts) and are never in the hot path.
  */
 
 interface State {
@@ -35,14 +39,65 @@ interface State {
 
   // projects
   createProject: (name: string) => string;
-  renameProject: (id: string, name: string) => void;
   deleteProject: (id: string) => void;
-  importProject: (p: Project) => void;
+  renameProject: (id: string, name: string) => void;
+
+  // project-level definitions
+  addCamera: (projectId: string) => void;
+  updateCamera: (
+    projectId: string,
+    cameraId: string,
+    patch: Partial<CameraDefinition>,
+  ) => void;
+  removeCamera: (projectId: string, cameraId: string) => void;
+
+  addTrack: (projectId: string) => void;
+  updateTrack: (
+    projectId: string,
+    trackId: string,
+    patch: Partial<TrackDefinition>,
+  ) => void;
+  removeTrack: (projectId: string, trackId: string) => void;
+  rememberPreset: (projectId: string, trackId: string, block: TrackBlock) => void;
 
   // bucket
   addSong: (projectId: string, title?: string) => string;
   updateSong: (projectId: string, songId: string, patch: Partial<Song>) => void;
   deleteSong: (projectId: string, songId: string) => void;
+
+  // pins
+  addPin: (projectId: string, songId: string, cardType: CardType) => void;
+  updatePin: (
+    projectId: string,
+    songId: string,
+    pinId: string,
+    patch: Partial<MilestonePin>,
+  ) => void;
+  removePin: (projectId: string, songId: string, pinId: string) => void;
+
+  // track data
+  addTrackBlock: (projectId: string, songId: string, trackId: string) => void;
+  updateTrackBlock: (
+    projectId: string,
+    songId: string,
+    trackId: string,
+    blockId: string,
+    patch: Partial<TrackBlock>,
+  ) => void;
+  removeTrackBlock: (
+    projectId: string,
+    songId: string,
+    trackId: string,
+    blockId: string,
+  ) => void;
+  /** Move the divider between block i and i+1. `ratio` is 0–1 of their pair. */
+  resizeTrackBlocks: (
+    projectId: string,
+    songId: string,
+    trackId: string,
+    index: number,
+    ratio: number,
+  ) => void;
 
   // playlists
   createPlaylist: (projectId: string, name: string) => string;
@@ -61,25 +116,6 @@ interface State {
     from: number,
     to: number,
   ) => void;
-
-  // templates — the playlist owns its default, songs may override it
-  setLayout: (projectId: string, playlistId: string, layout: GridCell[]) => void;
-  resetLayout: (projectId: string, playlistId: string) => void;
-  toggleLayoutBlock: (
-    projectId: string,
-    playlistId: string,
-    block: BlockType,
-  ) => void;
-  setSongLayout: (
-    projectId: string,
-    playlistId: string,
-    songId: string,
-    layout: GridCell[],
-  ) => void;
-  /** Start an override as a copy of the playlist default. */
-  startOverride: (projectId: string, playlistId: string, songId: string) => void;
-  /** Drop the override; the song goes back to the playlist default. */
-  clearOverride: (projectId: string, playlistId: string, songId: string) => void;
 
   // session / live
   goLive: (projectId: string, playlistId: string, index?: number) => void;
@@ -104,13 +140,21 @@ const DEFAULT_SESSION: Session = {
 
 const DEFAULT_DISPLAY: Display = { brightness: 1, contrast: 1 };
 
-/** Mutate one project in the array, returning a new array. */
 function withProject(
   projects: Project[],
   id: string,
   fn: (p: Project) => Project,
 ): Project[] {
   return projects.map((p) => (p.id === id ? fn(p) : p));
+}
+
+function withSong(p: Project, songId: string, fn: (s: Song) => Song): Project {
+  return {
+    ...p,
+    bucket: p.bucket.map((s) =>
+      s.id === songId ? { ...fn(s), updatedAt: Date.now() } : s,
+    ),
+  };
 }
 
 function withPlaylist(
@@ -124,19 +168,13 @@ function withPlaylist(
   };
 }
 
-/** Add a block to a layout, or remove it if already placed. */
-function toggleBlock(layout: GridCell[], block: BlockType): GridCell[] {
-  if (layout.some((c) => c.block === block)) {
-    return ensureReposition(layout.filter((c) => c.block !== block));
-  }
-  // Drop the new cell into the first free row, full width — somewhere
-  // obvious, for the operator to then place properly.
-  const maxY = layout.reduce((m, c) => Math.max(m, c.y + c.h), 0);
-  const y = Math.min(maxY, GRID_ROWS - 2);
-  return [
-    ...layout,
-    { block, x: 0, y, w: GRID_COLS, h: Math.min(2, GRID_ROWS - y) },
-  ];
+function withTrackData(
+  s: Song,
+  trackId: string,
+  fn: (blocks: TrackBlock[]) => TrackBlock[],
+): Song {
+  const next = normaliseWidths(fn(s.tracksData[trackId] ?? []));
+  return { ...s, tracksData: { ...s.tracksData, [trackId]: next } };
 }
 
 export const useStore = create<State>()(
@@ -164,15 +202,118 @@ export const useStore = create<State>()(
             s.session.projectId === id ? { ...DEFAULT_SESSION } : s.session,
         })),
 
-      importProject: (p) =>
-        set((s) => ({ projects: [...s.projects, { ...p, id: uid('p_') }] })),
+      /* ---- project-level definitions ---- */
+
+      addCamera: (projectId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            cameras: [...p.cameras, newCamera(p.cameras.length)],
+          })),
+        })),
+
+      updateCamera: (projectId, cameraId, patch) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            cameras: p.cameras.map((c) =>
+              c.id === cameraId ? { ...c, ...patch } : c,
+            ),
+          })),
+        })),
+
+      removeCamera: (projectId, cameraId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            cameras: p.cameras.filter((c) => c.id !== cameraId),
+            // A deleted camera stops being referenced by any card.
+            bucket: p.bucket.map((song) => ({
+              ...song,
+              pins: song.pins.map((pin) => {
+                const d = { ...pin.cardData };
+                if (d.shots) {
+                  const { [cameraId]: _gone, ...rest } = d.shots;
+                  d.shots = rest;
+                }
+                if (d.camera === cameraId) d.camera = undefined;
+                return { ...pin, cardData: d };
+              }),
+              repositionAfter: song.repositionAfter && {
+                ...song.repositionAfter,
+                cameras: song.repositionAfter.cameras.filter(
+                  (c) => c !== cameraId,
+                ),
+              },
+            })),
+          })),
+        })),
+
+      addTrack: (projectId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            tracks: [...p.tracks, newTrack(`Screen ${p.tracks.length + 1}`)],
+          })),
+        })),
+
+      updateTrack: (projectId, trackId, patch) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            tracks: p.tracks.map((t) =>
+              t.id === trackId ? { ...t, ...patch } : t,
+            ),
+          })),
+        })),
+
+      removeTrack: (projectId, trackId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            tracks: p.tracks.filter((t) => t.id !== trackId),
+            bucket: p.bucket.map((song) => {
+              const { [trackId]: _gone, ...rest } = song.tracksData;
+              return { ...song, tracksData: rest };
+            }),
+          })),
+        })),
+
+      /** Keep a block the operator built as a suggestion for this track. */
+      rememberPreset: (projectId, trackId, b) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) => ({
+            ...p,
+            tracks: p.tracks.map((t) => {
+              if (t.id !== trackId) return t;
+              const label = b.label.trim();
+              if (!label || t.recommendedBlocks.some((r) => r.label === label)) {
+                return t;
+              }
+              return {
+                ...t,
+                recommendedBlocks: [
+                  ...t.recommendedBlocks,
+                  {
+                    id: uid(),
+                    label,
+                    color: b.color,
+                    aspectRatio: b.aspectRatio,
+                  },
+                ],
+              };
+            }),
+          })),
+        })),
+
+      /* ---- bucket ---- */
 
       addSong: (projectId, title = '') => {
         const song = newSong(title);
         set((s) => ({
           projects: withProject(s.projects, projectId, (p) => ({
             ...p,
-            songs: [...p.songs, song],
+            bucket: [...p.bucket, song],
           })),
         }));
         return song.id;
@@ -180,21 +321,16 @@ export const useStore = create<State>()(
 
       updateSong: (projectId, songId, patch) =>
         set((s) => ({
-          projects: withProject(s.projects, projectId, (p) => ({
-            ...p,
-            songs: p.songs.map((song) =>
-              song.id === songId
-                ? { ...song, ...patch, updatedAt: Date.now() }
-                : song,
-            ),
-          })),
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) => ({ ...song, ...patch })),
+          ),
         })),
 
       deleteSong: (projectId, songId) =>
         set((s) => ({
           projects: withProject(s.projects, projectId, (p) => ({
             ...p,
-            songs: p.songs.filter((song) => song.id !== songId),
+            bucket: p.bucket.filter((song) => song.id !== songId),
             // A deleted bucket song disappears from every playlist using it.
             playlists: p.playlists.map((pl) => ({
               ...pl,
@@ -202,6 +338,143 @@ export const useStore = create<State>()(
             })),
           })),
         })),
+
+      /* ---- pins ---- */
+
+      addPin: (projectId, songId, cardType) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) => ({
+              ...song,
+              pins: [
+                ...song.pins,
+                {
+                  id: uid('pin_'),
+                  positionPercent: 50,
+                  cardType,
+                  cardData:
+                    cardType === 'first_shots' ? { shots: {} } : { text: '' },
+                },
+              ],
+            })),
+          ),
+        })),
+
+      updatePin: (projectId, songId, pinId, patch) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) => ({
+              ...song,
+              pins: song.pins.map((pin) =>
+                pin.id === pinId
+                  ? {
+                      ...pin,
+                      ...patch,
+                      positionPercent:
+                        patch.positionPercent === undefined
+                          ? pin.positionPercent
+                          : clamp(patch.positionPercent, 0, 100),
+                    }
+                  : pin,
+              ),
+            })),
+          ),
+        })),
+
+      removePin: (projectId, songId, pinId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) => ({
+              ...song,
+              pins: song.pins.filter((pin) => pin.id !== pinId),
+            })),
+          ),
+        })),
+
+      /* ---- track data ---- */
+
+      /**
+       * Adding a block splits the track: the new block takes half of the last
+       * one, so widths still sum to 100 without the operator doing sums.
+       */
+      addTrackBlock: (projectId, songId, trackId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) =>
+              withTrackData(song, trackId, (blocks) => {
+                const fresh: TrackBlock = {
+                  id: uid('b_'),
+                  label: '',
+                  color: TRACK_COLORS[blocks.length % TRACK_COLORS.length],
+                  widthPercent: 0,
+                };
+                if (blocks.length === 0) {
+                  return [{ ...fresh, widthPercent: 100 }];
+                }
+                const last = blocks[blocks.length - 1];
+                const half = last.widthPercent / 2;
+                return [
+                  ...blocks.slice(0, -1),
+                  { ...last, widthPercent: half },
+                  { ...fresh, widthPercent: half },
+                ];
+              }),
+            ),
+          ),
+        })),
+
+      updateTrackBlock: (projectId, songId, trackId, blockId, patch) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) =>
+              withTrackData(song, trackId, (blocks) =>
+                blocks.map((b) => (b.id === blockId ? { ...b, ...patch } : b)),
+              ),
+            ),
+          ),
+        })),
+
+      removeTrackBlock: (projectId, songId, trackId, blockId) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) =>
+              withTrackData(song, trackId, (blocks) =>
+                blocks.filter((b) => b.id !== blockId),
+              ),
+            ),
+          ),
+        })),
+
+      /**
+       * Drag a divider. Only the two blocks either side move, so the rest of
+       * the track holds still and the total stays at 100.
+       */
+      resizeTrackBlocks: (projectId, songId, trackId, index, ratio) =>
+        set((s) => ({
+          projects: withProject(s.projects, projectId, (p) =>
+            withSong(p, songId, (song) =>
+              withTrackData(song, trackId, (blocks) => {
+                const a = blocks[index];
+                const b = blocks[index + 1];
+                if (!a || !b) return blocks;
+                const pair = a.widthPercent + b.widthPercent;
+                // Never let a block collapse to nothing — it would be
+                // unclickable and unreadable.
+                const min = Math.min(2, pair / 2);
+                const aw = clamp(pair * ratio, min, pair - min);
+                return blocks.map((blk, i) =>
+                  i === index
+                    ? { ...blk, widthPercent: aw }
+                    : i === index + 1
+                      ? { ...blk, widthPercent: pair - aw }
+                      : blk,
+                );
+              }),
+            ),
+          ),
+        })),
+
+      /* ---- playlists ---- */
 
       createPlaylist: (projectId, name) => {
         const pl = newPlaylist(name);
@@ -223,19 +496,9 @@ export const useStore = create<State>()(
           id: uid('pl_'),
           name: `${src.name} (copy)`,
           date: today(),
-          // songIds are references into the bucket — copying the array is
-          // deliberately a shallow copy of references, not of content.
+          // songIds are references into the bucket — this copies references,
+          // never content, so both playlists stay in sync with the song.
           songIds: [...src.songIds],
-          // The template and any per-song overrides come with it. Duplicating
-          // last night's playlist for tonight is how a template stays stable
-          // across a run of dates.
-          layout: src.layout.map((c) => ({ ...c })),
-          overrides: Object.fromEntries(
-            Object.entries(src.overrides).map(([id, l]) => [
-              id,
-              l.map((c) => ({ ...c })),
-            ]),
-          ),
           createdAt: Date.now(),
         };
         set((s) => ({
@@ -296,78 +559,7 @@ export const useStore = create<State>()(
           ),
         })),
 
-      setLayout: (projectId, playlistId, layout) =>
-        set((s) => ({
-          projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) => ({
-              ...pl,
-              layout: ensureReposition(layout),
-            })),
-          ),
-        })),
-
-      resetLayout: (projectId, playlistId) =>
-        set((s) => ({
-          projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) => ({
-              ...pl,
-              layout: DEFAULT_LAYOUT.map((c) => ({ ...c })),
-            })),
-          ),
-        })),
-
-      /**
-       * Add or remove a block from the playlist's default template. Songs
-       * with their own override are untouched — that is the point of one.
-       */
-      toggleLayoutBlock: (projectId, playlistId, block) =>
-        set((s) => ({
-          projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) => ({
-              ...pl,
-              layout: toggleBlock(pl.layout, block),
-            })),
-          ),
-        })),
-
-      setSongLayout: (projectId, playlistId, songId, layout) =>
-        set((s) => ({
-          projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) => ({
-              ...pl,
-              overrides: { ...pl.overrides, [songId]: ensureReposition(layout) },
-            })),
-          ),
-        })),
-
-      startOverride: (projectId, playlistId, songId) =>
-        set((s) => ({
-          projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) =>
-              pl.overrides[songId]
-                ? pl
-                : {
-                    ...pl,
-                    // Starts as a copy of the default, so the operator is
-                    // adjusting a familiar layout rather than starting blank.
-                    overrides: {
-                      ...pl.overrides,
-                      [songId]: ensureReposition(pl.layout.map((c) => ({ ...c }))),
-                    },
-                  },
-            ),
-          ),
-        })),
-
-      clearOverride: (projectId, playlistId, songId) =>
-        set((s) => ({
-          projects: withProject(s.projects, projectId, (p) =>
-            withPlaylist(p, playlistId, (pl) => {
-              const { [songId]: _dropped, ...rest } = pl.overrides;
-              return { ...pl, overrides: rest };
-            }),
-          ),
-        })),
+      /* ---- session ---- */
 
       goLive: (projectId, playlistId, index = 0) =>
         set(() => ({
@@ -380,16 +572,15 @@ export const useStore = create<State>()(
           },
         })),
 
-      exitLive: () =>
-        set((s) => ({ session: { ...s.session, live: false } })),
+      exitLive: () => set((s) => ({ session: { ...s.session, live: false } })),
 
       setProjectId: (id) =>
         set((s) => ({ session: { ...s.session, projectId: id } })),
 
       /**
-       * Forward. If the current song is flagged "reposition after", the move
-       * gets its own full page first — you cannot land on the next song
-       * without passing through it.
+       * Forward. A song flagged with `repositionAfter` puts its full-page
+       * card in the way first — you cannot reach the next song without
+       * passing through it.
        */
       next: () => {
         const { session, projects } = get();
@@ -418,7 +609,7 @@ export const useStore = create<State>()(
         }
       },
 
-      /** Backward, symmetric: you pass back through the same interstitial. */
+      /** Backward, symmetric: you pass back through the same card. */
       prev: () => {
         const { session, projects } = get();
         const ctx = resolveSession(projects, session);
@@ -478,6 +669,45 @@ export const useStore = create<State>()(
   ),
 );
 
+/* -------------------------------------------------------------------------- */
+
+export interface SessionContext {
+  project: Project;
+  playlist: Playlist;
+  /** Playlist songs, resolved against the bucket, in playlist order. */
+  songs: Song[];
+}
+
+export function resolveSession(
+  projects: Project[],
+  session: Session,
+): SessionContext | null {
+  const project = projects.find((p) => p.id === session.projectId);
+  if (!project) return null;
+  const playlist = project.playlists.find((pl) => pl.id === session.playlistId);
+  if (!playlist) return null;
+  const songs = playlistSongs(project, playlist);
+  if (songs.length === 0) return null;
+  return { project, playlist, songs };
+}
+
+/** A playlist pointing at a deleted song must degrade, never crash. */
+export function playlistSongs(project: Project, playlist: Playlist): Song[] {
+  return playlist.songIds
+    .map((id) => project.bucket.find((s) => s.id === id))
+    .filter((s): s is Song => Boolean(s));
+}
+
+export function songIsEmpty(song: Song): boolean {
+  return (
+    song.pins.length === 0 &&
+    Object.values(song.tracksData).every((b) => b.length === 0) &&
+    !song.repositionAfter
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 /**
  * Runs once, straight after hydration. localStorage is synchronous, so this
  * completes before the first render — the app never paints a wrong state and
@@ -485,14 +715,10 @@ export const useStore = create<State>()(
  */
 function bootstrap() {
   const s = useStore.getState();
-
-  // First run: a worked example beats an empty screen.
   if (s.projects.length === 0) {
     useStore.setState({ projects: [demoProject()] });
   }
 
-  // A stale session — playlist deleted, songs removed since last show — must
-  // never strand the operator on a blank live view.
   const now = useStore.getState();
   const ctx = resolveSession(now.projects, now.session);
   if (now.session.live && !ctx) {
@@ -511,44 +737,4 @@ function bootstrap() {
 if (useStore.persist.hasHydrated()) bootstrap();
 else useStore.persist.onFinishHydration(bootstrap);
 
-export interface SessionContext {
-  project: Project;
-  playlist: Playlist;
-  /** Playlist songs, resolved against the bucket, in playlist order. */
-  songs: Song[];
-}
-
-export function resolveSession(
-  projects: Project[],
-  session: Session,
-): SessionContext | null {
-  const project = projects.find((p) => p.id === session.projectId);
-  if (!project) return null;
-  const playlist = project.playlists.find((pl) => pl.id === session.playlistId);
-  if (!playlist) return null;
-  const songs = playlist.songIds
-    .map((id) => project.songs.find((s) => s.id === id))
-    .filter((s): s is Song => Boolean(s));
-  if (songs.length === 0) return null;
-  return { project, playlist, songs };
-}
-
-/** Resolve a playlist's songs outside of live state (prep view, PDF). */
-export function playlistSongs(project: Project, playlist: Playlist): Song[] {
-  return playlist.songIds
-    .map((id) => project.songs.find((s) => s.id === id))
-    .filter((s): s is Song => Boolean(s));
-}
-
-export function songIsEmpty(song: Song): boolean {
-  const b = song.blocks;
-  return (
-    b.presets.length === 0 &&
-    b.camScreen.length === 0 &&
-    b.instruments.length === 0 &&
-    b.firstShots.length === 0 &&
-    !b.note.trim() &&
-    !song.repositionDuring.trim() &&
-    !song.repositionAfter.trim()
-  );
-}
+export { CAMERA_COLORS, TRACK_COLORS };

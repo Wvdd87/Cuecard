@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, resolveSession } from '../../lib/store';
-import type { GridCell, Playlist, Song } from '../../lib/types';
-import { cellLabel, isReposition, layoutFor } from '../../lib/types';
-import { GRID_VARS } from '../../lib/grid';
-import { BlockContent } from './blocks';
-import { cellHasContent } from '../../lib/blocks';
-import { useFitToBox } from '../../lib/fit';
+import type { Song } from '../../lib/types';
 import { Interstitial } from './Interstitial';
+import { SongCanvas } from './SongCanvas';
 import { LiveTools } from './LiveTools';
 import { toggleFullscreen } from '../../lib/screen';
 
+/**
+ * The live view. Read-only: no drag handles, no inputs, no edit affordances,
+ * and the whole song fits on screen — no scrollbars in either direction.
+ */
 export function LiveView() {
   const session = useStore((s) => s.session);
   const projects = useStore((s) => s.projects);
@@ -23,12 +23,14 @@ export function LiveView() {
     () => resolveSession(projects, session),
     [projects, session],
   );
-
   const [toolsOpen, setToolsOpen] = useState(false);
 
   useKeepAwake(Boolean(ctx));
 
-  // One-handed keyboard: space and arrows do the same thing.
+  /*
+   * One-handed, without looking away from the screen to find a key:
+   * space advances, up/down step through the playlist.
+   */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
@@ -37,15 +39,18 @@ export function LiveView() {
       switch (e.key) {
         case ' ':
         case 'Spacebar':
-        case 'ArrowRight':
-        case 'ArrowDown':
-        case 'PageDown':
         case 'Enter':
           e.preventDefault();
           next();
           break;
-        case 'ArrowLeft':
+        case 'ArrowDown':
+        case 'ArrowRight':
+        case 'PageDown':
+          e.preventDefault();
+          next();
+          break;
         case 'ArrowUp':
+        case 'ArrowLeft':
         case 'PageUp':
           e.preventDefault();
           prev();
@@ -73,10 +78,9 @@ export function LiveView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [next, prev, jumpTo, nudgeBrightness]);
 
-  /* Empty playlist keeps the rail, so Setup stays reachable. */
   if (!ctx) {
     return (
-      <div className="live live-repo">
+      <div className="live live-empty-state">
         <nav className="live-rail" aria-label="Playlist">
           <div className="rail-list">
             <div className="help" style={{ padding: 16 }}>
@@ -103,19 +107,28 @@ export function LiveView() {
     );
   }
 
-  const { playlist, songs } = ctx;
+  const { project, playlist, songs } = ctx;
   const index = Math.min(session.index, songs.length - 1);
   const song = songs[index];
   const upcoming = songs[index + 1];
+  const onCard = session.interstitial && Boolean(upcoming);
 
   return (
-    <div className={session.interstitial ? 'live live-repo' : 'live'}>
-      <Rail
-        songs={songs}
-        index={index}
-        interstitial={session.interstitial}
-        onJump={jumpTo}
-      >
+    <div className={onCard ? 'live live-repo' : 'live'}>
+      {/* Region A — fixed header and left rail. */}
+      <header className="live-head">
+        <h1 className="live-title">{song.title || 'Untitled'}</h1>
+        <div className="live-next">
+          <span className="label-cap">Next</span>
+          {upcoming ? (
+            <div className="name">{upcoming.title || 'Untitled'}</div>
+          ) : (
+            <div className="name end">End of set</div>
+          )}
+        </div>
+      </header>
+
+      <Rail songs={songs} index={index} interstitial={session.interstitial} onJump={jumpTo}>
         <LiveTools
           open={toolsOpen}
           setOpen={setToolsOpen}
@@ -126,26 +139,17 @@ export function LiveView() {
         />
       </Rail>
 
-      {session.interstitial && upcoming ? (
-        <Interstitial from={song} to={upcoming} onAdvance={next} />
+      {onCard ? (
+        <Interstitial
+          from={song}
+          to={upcoming}
+          project={project}
+          onAdvance={next}
+        />
       ) : (
-        <>
-          <header className="live-head">
-            <h1 className="live-title">{song.title || 'Untitled'}</h1>
-            <div className="live-next">
-              <span className="label-cap">Next</span>
-              {upcoming ? (
-                <div className="name">{upcoming.title || 'Untitled'}</div>
-              ) : (
-                <div className="name end">End of set</div>
-              )}
-            </div>
-          </header>
-
-          <div className="live-stage" onClick={next} role="presentation">
-            <SongGrid song={song} playlist={playlist} />
-          </div>
-        </>
+        <div className="live-stage" onClick={next} role="presentation">
+          <SongCanvas song={song} project={project} />
+        </div>
       )}
     </div>
   );
@@ -164,7 +168,6 @@ function Rail({
   index: number;
   interstitial: boolean;
   onJump: (i: number) => void;
-  /** Live chrome, parked in the rail's foot where it cannot cover a block. */
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -183,8 +186,6 @@ function Rail({
             className={
               'rail-item' +
               (i < index ? ' past' : '') +
-              // During a reposition the rail still answers "where am I", but
-              // shows it as a transition rather than as sitting on the song.
               (i === index && interstitial ? ' moving' : '')
             }
             aria-current={i === index ? 'true' : undefined}
@@ -192,10 +193,7 @@ function Rail({
           >
             <span className="n">{i + 1}</span>
             <span className="t">{s.title || 'Untitled'}</span>
-            <span className="marker">
-              {s.repositionDuring ? '●' : ''}
-              {s.repositionAfter ? '▼' : ''}
-            </span>
+            <span className="marker">{s.repositionAfter ? '▼' : ''}</span>
           </button>
         ))}
       </div>
@@ -203,50 +201,6 @@ function Rail({
     </nav>
   );
 }
-
-/**
- * Every song renders the playlist's default template, unless that song has
- * an override — which is the only thing allowed to change the geometry, and
- * only for that one song.
- */
-function SongGrid({ song, playlist }: { song: Song; playlist: Playlist }) {
-  const layout = layoutFor(playlist, song.id);
-  return (
-    <div className="live-grid" style={GRID_VARS}>
-      {layout.map((cell) =>
-        cellHasContent(song, cell.block) ? (
-          <Cell key={cell.block} cell={cell} song={song} />
-        ) : null,
-      )}
-    </div>
-  );
-}
-
-function Cell({ cell, song }: { cell: GridCell; song: Song }) {
-  const ref = useFitToBox<HTMLDivElement>(
-    `${song.id}:${song.updatedAt}:${cell.w}x${cell.h}`,
-  );
-  return (
-    <div
-      className={isReposition(cell.block) ? 'cell repo-cell' : 'cell'}
-      style={{
-        gridColumn: `${cell.x + 1} / span ${cell.w}`,
-        gridRow: `${cell.y + 1} / span ${cell.h}`,
-      }}
-    >
-      <div className="cell-label">{cellLabel(cell.block)}</div>
-      <div className="cell-body" ref={ref}>
-        {isReposition(cell.block) ? (
-          <div className="repo-text">{song.repositionDuring}</div>
-        ) : (
-          <BlockContent song={song} block={cell.block} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 
 /** Venue devices sleep. Hold a wake lock for as long as the live view is up. */
 function useKeepAwake(active: boolean) {

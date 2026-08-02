@@ -42,141 +42,80 @@ Two consequences shape nearly every technical decision:
 ### Data model (`src/lib/types.ts`)
 
 ```
-Project ─┬─ songs: Song[]         the "bucket" — every song for this artist
-         └─ playlists: Playlist[]
-              ├─ songIds: string[]                REFERENCES, not copies
-              ├─ layout: GridCell[]               the show's default template
-              └─ overrides: Record<songId, GridCell[]>
+Project ─┬─ cameras   master camera list; each owns one badge colour
+         ├─ tracks    screen definitions, identical on every song
+         ├─ bucket    every song ever built for this artist
+         └─ playlists ordered *references* into the bucket
 ```
 
 `Playlist.songIds` holds bucket ids. Nothing ever copies song content —
 `duplicatePlaylist` shallow-copies the id array on purpose. Editing a song
 updates it in every playlist, and the same song may legitimately appear twice
-in one playlist (encore reprise), so **never key a list on `song.id` alone** —
-use `` `${song.id}-${index}` ``.
+in one playlist, so **never key a list on `song.id` alone** — use
+`` `${song.id}-${index}` ``.
 
-Resolution from ids to songs goes through `resolveSession()` / `playlistSongs()`
-in `src/lib/store.ts`, which filter out ids with no matching song. A playlist
+Resolution goes through `resolveSession()` / `playlistSongs()` in
+`src/lib/store.ts`, which filter out ids with no matching song. A playlist
 pointing at a deleted song must degrade, never crash.
 
-### The block library is a spec table
+### A song is a timeline, not a grid
 
-`BLOCKS` in `src/lib/types.ts` is the single source of truth: label, prep hint,
-`kind` (`rows` | `tags` | `line` | `screens`), group, and column layout. Rendering
-(`components/live/blocks.tsx`), editing (`prep/SongEditor.tsx`), the palette,
-and the PDF all switch on `kind`, so **adding a block is a table entry plus a
-field on `SongBlocks` plus a migration** — never new rendering code. Row blocks
-share one positional `BlockRow { id, a, b, c }` shape for the same reason.
+This replaced an earlier fixed-grid-of-blocks model completely. A song is read
+left to right:
 
-**Screens are timelines, not rows.** `camScreen` is `ScreenRow[]`: a screen
-plus the ordered `ScreenSegment`s that feed it across the song. A segment's
-source is a camera number *or* a switcher bus (PGM, ME1, …), because a screen
-often mirrors a bus rather than one fixed camera, and it can change part-way
-through a song. Segments carry a relative `span`, never a time — there is no
-clock to place them against, so equal spans read as "this, then this".
+- **`pins: MilestonePin[]`** — each anchored at a `positionPercent` (0–100).
+  There is no timecode to place them against; a percentage is exactly as
+  precise as the operator's sense of the music. Each pin carries one cue card.
+- **`tracksData: Record<trackId, TrackBlock[]>`** — screen content over the
+  song. **Every track's blocks sum to 100.** `normaliseWidths()` enforces it
+  and every write in the store goes through `withTrackData`, so the total
+  cannot drift. `resizeTrackBlocks` moves only the pair either side of a
+  divider, so the rest of the track holds still.
 
-`src/lib/source.ts` decides how a source paints: **cameras get their locked
-hue; buses deliberately do not.** The eight camera hues are reserved for
-cameras alone, so giving PGM one would break the thing that lets an operator
-read "camera 3" off a colour. Buses fill with neutral steps and are told apart
-by their label. Do not "improve" this by handing buses a colour.
+**Card lanes are fixed; card positions are not.** `CARD_LANES` sets the
+vertical order (first shots, reposition, shot, note) and it is the same on
+every song. Horizontal position follows the song's own structure and therefore
+varies. That split is the whole point: the operator always knows which band to
+check, even though where it falls left-to-right changes. Do not sort lanes by
+content or let a lane collapse when empty.
 
-Blocks are deliberately small and specific. If you find yourself adding a
-general-purpose "notes" or "other" block, that's the thing this design exists
-to avoid — Structure (intro/ending/energy/avoid/note) is the split-up version
-of exactly that.
+Within a lane, `layOut()` in `SongCanvas.tsx` nudges a card rightward only as
+far as needed to stop two cards overlapping — a card covering another is worse
+than a card a few percent off its pin.
 
-### Templates and overrides
+### Reposition is two different things
 
-`layoutFor(playlist, songId)` — `overrides[songId] ?? layout` — is the only
-place this resolves, and both the live view and the editor go through it.
+Both are first-class; neither is a Note, because missing one is a real
+production problem.
 
-- The **playlist** owns the default template. Not the project: that was an
-  earlier design, and duplicating a playlist (which copies layout *and*
-  overrides) is what carries a template across a run of dates instead.
-- An **override** is scoped to (playlist, song), because the same bucket song
-  may sit in another playlist built on a completely different default.
-- `startOverride` seeds from the default and is idempotent — it must never
-  clobber an override that already exists.
-- Editing the default must leave overridden songs untouched. That's the point
-  of an override and it's covered by tests.
-
-### Camera repositioning is not a block
-
-It's a property of the transition, stored on the song as two independent
-strings (empty = none). A song may have both:
-
-- `repositionDuring` → renders in the **reposition cell**, for the whole song.
-  There's no timecode to key a countdown off, so it is simply always-visible.
-- `repositionAfter` → renders as `Interstitial`, a full page between this song
-  and the next.
-
-Adding a "reposition block" to `BlockType` would still be a category error —
-these belong to transitions, not to song content. `repositionDuring` *is* laid
-out in the grid, but as a `CellKey` (`'reposition'`), not a `BlockType`: it has
-no `BLOCKS` entry, no editor of its own, and nothing you can type into it.
-
-**The reposition cell is placeable but never removable.** It can be moved and
-resized like anything else, and `ensureReposition()` puts it back on every
-layout write — `setLayout`, `setSongLayout`, `startOverride` and
-`toggleLayoutBlock` all go through it — so no default template and no per-song
-override can drop it. The editor's palette entry for it is locked for the same
-reason. A during-song move has to be visible for the whole song, and a
-guarantee enforced only in the UI is not a guarantee.
-
-When the song has no during-move the cell simply isn't rendered, like any
-empty block; the grid's explicit coordinates keep everything else in place.
+- **After a song** (`Song.repositionAfter`) → a full-page interstitial between
+  this song and the next. It sits outside the pins/cards/tracks layout
+  entirely — a dedicated screen, not a card — and you cannot reach the next
+  song's dashboard without passing through it.
+- **During a song** → a pin with `cardType: 'reposition'`, in its own fixed
+  lane, visible for the relevant stretch while the show keeps running.
 
 ### Navigation state machine (`next` / `prev` / `jumpTo` in `store.ts`)
 
 `session.interstitial` is a boolean parked *on* `session.index`, not a separate
-index. The rules, all covered by `src/lib/store.test.ts`:
+index. Covered by `src/lib/store.test.ts`:
 
-- Forward onto a song with `repositionAfter` lands on the interstitial first —
-  you cannot reach the next song without passing through it.
-- Backward is symmetric: you pass back through the same card.
+- Forward onto a song with `repositionAfter` lands on the interstitial first.
+- Backward is symmetric: you pass back through the same screen.
 - No interstitial after the final song.
 - `jumpTo` (the rail) **bypasses interstitials by design** — an explicit jump
   is intentional, and the operator needs it when the artist audibles.
 
-Change any of this and the tests should be updated deliberately, not patched
-to match.
+Live keys: **space** advances (the expected path through a show), **up/down**
+step through the playlist, the rail jumps. All one-handed, no key-hunting.
 
 ### Two renderings, one dataset
 
 `PrepView` and `LiveView` render the same songs. Prep is full-detail and
-editable and is the *only* place reference images appear. Live is stripped to
-fixed regions plus the configured grid, and never loads images. The template
-editor's preview uses the real live renderer and the real fit logic, so it
-stays honest — don't fork a simplified preview renderer.
-
-### Fixed-geometry invariants — the things most likely to be broken by accident
-
-The live layout must look structurally identical on every song in a playlist.
-Three mechanisms enforce this; all three are load-bearing:
-
-1. **`.live-grid` cells use explicit `gridColumn`/`gridRow` coordinates** from
-   `layoutFor(playlist, song.id)`. A block with no content is *not rendered* (`blockHasContent`
-   in `src/lib/blocks.ts`), leaving its space dark. Never switch to
-   auto-placement, flex, or any "collapse empty cells" behaviour.
-2. **Emptiness never moves anything.** This used to need a fixed-height
-   `.repo-band` strip above the grid; now the band is a cell and the grid's
-   explicit coordinates do the work, for it and every block alike.
-3. **`useFitToBox` in `src/lib/fit.ts`** shrinks cell content that a block is
-   too small to hold, so a block never has to grow to fit its content.
-   Binary search over a `--fit` multiplier, written straight to the DOM (no
-   React renders), re-run by a `ResizeObserver`. `FIT_MAX` is **1**: fitting
-   only ever shrinks. It used to grow content to fill spare room too, which
-   put the same tier at seven different sizes on one screen. Nothing in a
-   live cell may use `text-overflow: ellipsis` — a self-truncating child
-   measures as "fitting" and silently hides a cue instead of scaling.
-
-There is a browser-level check for this: the `.live-grid` bounding box must be
-identical between a song with a during-move and one without.
-
-**Grid dimensions come from `GRID_COLS`/`GRID_ROWS` via the `GRID_VARS` inline
-style**, not from hardcoded `repeat()` in CSS. Hardcoding them once already
-caused a silent bug where every row past the eighth collapsed to auto height.
+editable and is the *only* place reference images appear. **The live view is
+strictly read-only** — no drag handles, no inputs, no edit affordances — and
+must fit on screen with no scrollbar in either direction. There is a browser
+check for that.
 
 ### The visual system — CueFlow design system
 
@@ -250,6 +189,20 @@ its place. **Modals carry a 2px `--primary` top border** and a `--hair3` edge
 against an opaque-leaning backdrop. Tooltips use condensed-caps payloads and
 should pair with `aria-describedby`.
 
+**Three colour systems, and they must never bleed into each other (kit §4
+plus a CueCard extension).** Each answers a different question:
+
+| System | Question | Where |
+|---|---|---|
+| `--primary` amber | what is active/selected | current song in the rail, active pin |
+| `--cam1..8` | which camera is this | camera badges, everywhere a camera appears |
+| `--trk1..8` + `--trk-black` | what source is on this screen | track blocks |
+
+The camera hues are reserved for cameras. The track palette is the one place
+CueCard adds colour the kit does not have (`src/styles/tokens/tracks.css`) —
+deliberately desaturated and darker so a track block can never be mistaken for
+a camera badge. Assign these once at project level, never per song.
+
 **Cameras (kit §4).** **Cameras own colour.** The eight hues `--cam1..8` are
 reserved exclusively for camera sub-tracks and nothing else in the app may use
 them. **Each camera is locked to one hue and is never recoloured.** Anything
@@ -309,9 +262,15 @@ stage. See the fit note below before adding a live text style.
   They're large, prep-only, and must stay out of the hot path and out of the
   ~5 MB localStorage budget.
 
-`src/lib/migrate.ts` converts persisted state on version bumps. Steps are
-cumulative — `migrate` runs every step above the stored version, so v1 data
-goes through v1→v2 *and* v2→v3. Prep data sits
+`src/lib/migrate.ts` converts persisted state on version bumps. **Convert,
+never reset** — losing a show's prep to an app update is the worst failure this
+app has. The v5 step is the big one: it turns the old grid-of-blocks model into
+the timeline, and its rule is that *nothing is discarded*. First shots become a
+`first_shots` pin, a during-song move stays a `reposition` pin, screens become
+tracks with segment spans as widths, and every block with no structural home
+(presets, watch tags, intro/ending/energy/avoid) survives as a Note pin spread
+across the song. Cameras and tracks are derived from what the old data actually
+used rather than invented. Prep data sits
 on a working device between shows, so a schema change must **convert, never
 reset** — losing a show's prep to an app update is the worst failure this app
 has. Every step has to survive partially-shaped data; anything unrecognised

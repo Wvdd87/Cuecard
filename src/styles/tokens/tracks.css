@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════════════════════════════
+   CueCard — TRACK CONTENT PALETTE  (extension)
+
+   The CueFlow kit has no palette for screen-content blocks: it covers
+   cameras (eight reserved hues), the semantic accents, and neutral
+   surfaces. This is the one place CueCard adds colour of its own, and
+   it exists because the app runs three colour systems that must never
+   be confused with one another:
+
+     · accent    — what is active / selected        (--primary, amber)
+     · cameras   — which camera is this             (--cam1..8, vivid)
+     · tracks    — what source is on this screen    (below)
+
+   These are deliberately desaturated and sit in a darker band than the
+   camera hues, so a track block can never be mistaken for a camera
+   badge at a glance. Black/off has its own treatment: it is the one
+   "block" that reads as absence.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --trk1: #2f4858; /* slate  */
+  --trk2: #4a3b57; /* plum   */
+  --trk3: #2e4f43; /* forest */
+  --trk4: #57452e; /* bronze */
+  --trk5: #3f3f4b; /* graphite */
+  --trk6: #503038; /* maroon */
+  --trk7: #26424f; /* teal   */
+  --trk8: #4b4230; /* olive  */
+
+  /* Off / black: absence, not a colour. */
+  --trk-black: #08080b;
+}

@@ -29,12 +29,7 @@ export function ProjectsScreen() {
   return (
     <div className="prep">
       {/* Same shell as every other screen — the chrome never changes shape. */}
-      <TopNav
-        active="projects"
-        canTemplate={false}
-        canGoLive={false}
-        onNavigate={() => {}}
-      />
+      <TopNav active="projects" canGoLive={false} onNavigate={() => {}} />
 
       <div className="prep-body">
         <div className="projects">
@@ -138,7 +133,7 @@ function ProjectCard({
           <div className="cf-card-meta">
             <div>
               <span className="cf-lbl">Songs</span>
-              <span className="cf-v">{project.songs.length}</span>
+              <span className="cf-v">{project.bucket.length}</span>
             </div>
             <div>
               <span className="cf-lbl">Playlists</span>

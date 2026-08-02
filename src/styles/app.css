@@ -342,21 +342,44 @@ input, textarea, select { font: inherit; }
 .layout-item .handle:hover { background: linear-gradient(135deg, transparent 50%, var(--primary) 50%); }
 
 /* ══ LIVE ════════════════════════════════════════════════════════
-   Fixed regions, identical geometry on every song. Only content
-   changes between songs.
+   A song is one fully-visible dashboard read left to right. Nothing
+   here scrolls: the whole timeline is on screen at once.
    ═══════════════════════════════════════════════════════════════ */
 
 .live {
-  height: 100%; display: grid; grid-template-columns: var(--rail-w) 1fr;
-  grid-template-rows: auto 1fr; background: var(--bg); overflow: hidden;
+  height: 100%; display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-rows: auto 1fr;
+  background: var(--bg); overflow: hidden;
 }
-.live.live-repo { grid-template-rows: 1fr; }
+.live.live-repo, .live.live-empty-state { grid-template-rows: 1fr; }
+.live.live-repo .live-head { display: none; }
 
-/* Rail — playlist overview and jump-anywhere navigation. */
+/* Region A — header. */
+.live-head {
+  grid-column: 1 / -1; grid-row: 1;
+  display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+  gap: var(--s-5); padding: 14px var(--s-6) 12px;
+  border-bottom: 1px solid var(--hair); min-width: 0;
+}
+.live-title {
+  margin: 0; font-family: var(--cond); font-size: clamp(24px, 3vw, 42px);
+  font-weight: var(--w-bold); color: var(--txt-hi);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.live-next { display: flex; align-items: baseline; gap: 10px; min-width: 0; max-width: 40vw; }
+.live-next .name {
+  font-family: var(--mono); font-size: clamp(14px, 1.5vw, 22px); color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.live-next .name.end { color: var(--txt-low); }
+
+/* Region A — left rail. */
 .live-rail {
-  grid-column: 1; grid-row: 1 / -1; border-right: 1px solid var(--hair);
+  grid-column: 1; grid-row: 2; border-right: 1px solid var(--hair);
   display: flex; flex-direction: column; min-height: 0;
 }
+.live.live-repo .live-rail, .live.live-empty-state .live-rail { grid-row: 1; }
 .rail-list { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s-2) 0; }
 .rail-item {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -369,14 +392,148 @@ input, textarea, select { font: inherit; }
 .rail-item .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-item .marker { font-family: var(--mono); font-size: var(--fs-label); color: var(--primary); }
 .rail-item.past { color: var(--txt-low); }
+/* The accent means active/selected, and only that. */
 .rail-item[aria-current='true'] {
-  background: var(--canvas); border-left-color: var(--txt-hi);
+  background: var(--canvas); border-left-color: var(--primary);
   color: var(--txt-hi); font-weight: var(--w-bold);
 }
-/* Parked on the reposition card that follows this song. */
-.rail-item.moving { background: var(--primary-bg); border-left-color: var(--primary); }
-
+.rail-item.moving { background: var(--primary-bg); }
 .rail-foot { flex: none; position: relative; border-top: 1px solid var(--hair); padding: 10px; }
+
+.live-stage {
+  grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; overflow: hidden;
+  padding: var(--s-4) var(--s-5);
+}
+.live-empty { grid-column: 2; grid-row: 1 / -1; display: grid; place-items: center; }
+
+/* ── Region B — pins and cue cards ───────────────────────────────
+   Card position follows the song; card *lane* never does. The lane an
+   operator checks for a kind of information is the same on every song. */
+
+.canvas {
+  height: 100%; display: grid; grid-template-rows: 1fr auto auto;
+  min-height: 0; min-width: 0; gap: var(--s-3);
+}
+
+/* Lanes share the canvas height so the dashboard fills the screen, and each
+   card fills its lane. A lane's vertical position never changes: that is what
+   lets the operator check one band for one kind of information. */
+.lanes {
+  display: grid; grid-auto-rows: 1fr; gap: 6px; min-height: 0;
+}
+.lane { position: relative; min-height: 0; }
+.lane-slot { position: absolute; top: 0; bottom: 0; width: 21%; }
+
+/* Every card hangs from its pin on the rail below. */
+.connector {
+  position: absolute; bottom: -8px; width: 1px; height: 8px;
+  background: var(--hair3);
+}
+
+.cue-card {
+  height: 100%; display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface); border: 1px solid var(--hair);
+  border-top: 2px solid var(--hair3);
+  padding: var(--s-2) 10px; overflow: hidden;
+}
+.cue-kind {
+  flex: none; font-family: var(--cond); font-size: var(--fs-label-sm);
+  font-weight: var(--w-bold); letter-spacing: var(--ls-label);
+  text-transform: uppercase; color: var(--txt-mid);
+}
+.cue-body { flex: 1; min-height: 0; overflow: hidden; display: flex; align-items: center; }
+
+/* Reposition is the one card that must not be mistaken for a note. */
+.cue-reposition { border-top-color: var(--primary); background: var(--primary-bg); }
+.cue-reposition .cue-kind { color: var(--primary); }
+
+/* A list reads from the top; a single statement sits centred. */
+.shots { display: flex; flex-direction: column; gap: 2px; align-self: stretch; width: 100%; }
+.shot { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: clamp(11px, 1vw, 17px); }
+.shot.unused { opacity: 0.35; }
+.shot-text {
+  font-family: var(--sans); color: var(--txt-hi); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.one-shot { display: flex; align-items: center; gap: 10px; width: 100%; font-size: clamp(13px, 1.35vw, 24px); }
+.note-text {
+  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi);
+  font-size: clamp(13px, 1.35vw, 24px); line-height: 1.25; overflow: hidden;
+}
+
+.pin-rail {
+  position: relative; height: 2px; background: var(--hair2); flex: none;
+}
+.pin {
+  position: absolute; top: 50%; width: 9px; height: 9px;
+  border-radius: var(--radius-pill); transform: translate(-50%, -50%);
+  background: var(--txt-mid); box-shadow: 0 0 0 2px var(--bg);
+}
+.pin-reposition { background: var(--primary); }
+.pin-first_shots { background: var(--txt-hi); }
+
+/* ── Region C — screen tracks ────────────────────────────────────
+   Structure is identical on every song: track definitions live at
+   project level. Tracks do not align to each other or to the pins. */
+
+.tracks { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.track { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 10px; }
+.track-name {
+  font-family: var(--cond); font-size: var(--fs-label-sm); font-weight: var(--w-bold);
+  letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--txt-mid);
+  text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.track-lane { display: flex; gap: 2px; height: clamp(30px, 4.4vh, 46px); min-width: 0; }
+.track-empty { flex: 1; border: 1px dashed var(--hair); }
+.track-block {
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  min-width: 0; padding: 0 8px; overflow: hidden;
+}
+.track-block.is-black { box-shadow: inset 0 0 0 1px var(--hair2); }
+.tb-label {
+  font-family: var(--cond); font-weight: var(--w-bold); font-size: clamp(10px, 0.9vw, 14px);
+  color: var(--txt-hi); text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tb-ar, .tb-text {
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.8;
+}
+
+/* ── Reposition interstitial ─────────────────────────────────────
+   A dedicated screen, not a card. */
+
+.interstitial {
+  grid-column: 2; grid-row: 1 / -1; display: flex; flex-direction: column;
+  justify-content: center; gap: var(--s-5); padding: clamp(30px, 5vw, 70px);
+  min-width: 0;
+  /* The mockup's warm near-black; the system has no token for it. */
+  background: #0c0703;
+  background-image: repeating-linear-gradient(
+    -45deg, rgba(240, 168, 56, 0.07) 0 14px, transparent 14px 34px
+  );
+  box-shadow: inset 0 0 0 2px var(--primary-dim);
+}
+.interstitial .kicker {
+  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
+  letter-spacing: 0.16em; color: var(--primary); text-transform: uppercase;
+}
+.interstitial .repo-cams { display: flex; gap: var(--s-2); font-size: clamp(18px, 2.2vw, 32px); }
+.interstitial .body {
+  font-family: var(--cond); font-size: clamp(28px, 4vw, 56px); font-weight: var(--w-bold);
+  line-height: var(--lh-heading); color: var(--txt-hi); overflow-wrap: anywhere;
+}
+.interstitial .foot {
+  display: flex; align-items: baseline; gap: 14px;
+  font-family: var(--sans); font-size: 13px; color: var(--txt-mid);
+}
+.interstitial .foot b { color: var(--txt); }
+.interstitial .foot .cue {
+  margin-left: auto; font-family: var(--cond); font-size: var(--fs-label-sm);
+  font-weight: var(--w-bold); letter-spacing: var(--ls-label); text-transform: uppercase;
+}
+
+/* Live chrome — one dim affordance in the rail's foot. */
 .tool-btn {
   width: 100%; height: 32px; background: transparent; border: 1px solid var(--hair2);
   color: var(--txt-mid); font-family: var(--cond); font-size: var(--fs-label-sm);
@@ -384,12 +541,12 @@ input, textarea, select { font: inherit; }
   cursor: pointer;
 }
 .tool-btn:hover { color: var(--txt-hi); border-color: var(--hair3); }
-
 .live-tools-pop {
   position: absolute; bottom: calc(100% + 8px); left: 10px; width: 270px;
   background: var(--surface); border: 1px solid var(--hair2); box-shadow: var(--shadow-pop);
   padding: 14px; display: flex; flex-direction: column; gap: var(--s-3); z-index: 20;
 }
+.live-tools-pop .cf-btn { flex: 1; }
 .live-tools-pop .slider-label {
   font-family: var(--cond); font-size: var(--fs-label-sm); font-weight: var(--w-bold);
   letter-spacing: var(--ls-label); color: var(--txt-mid); text-transform: uppercase; margin-bottom: 6px;
@@ -404,161 +561,6 @@ input, textarea, select { font: inherit; }
   border-bottom-width: 2px; padding: 1px 5px; color: var(--txt-mid); text-align: center;
 }
 .keys .mark { color: var(--primary); font-family: var(--mono); }
-/* Kit 1.1: every button in the system is a cf-btn — condensed caps label,
-   one of four hierarchies, one of three heights. No bespoke buttons. */
-.live-tools-pop .cf-btn { flex: 1; }
-
-.live-head {
-  grid-column: 2; grid-row: 1; display: grid; grid-template-columns: 1fr auto;
-  align-items: baseline; gap: var(--s-5); padding: 18px var(--s-6) 15px;
-  border-bottom: 1px solid var(--hair); min-width: 0;
-}
-.live-title {
-  margin: 0; font-family: var(--cond); font-size: clamp(26px, 3.4vw, 48px);
-  font-weight: var(--w-bold); color: var(--txt-hi);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.live-next { display: flex; align-items: baseline; gap: 10px; min-width: 0; max-width: 40vw; }
-.live-next .name {
-  font-family: var(--mono); font-size: clamp(16px, 1.8vw, 26px); color: var(--txt);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.live-next .name.end { color: var(--txt-low); }
-
-.live-stage {
-  grid-column: 2; grid-row: 2; display: grid; min-height: 0; min-width: 0;
-  padding: 18px;
-}
-
-/*
- * The during-song reposition cell. Placeable like any block, but it is the
- * one cell a layout is guaranteed to contain, so a move is never invisible.
- * Its space is only occupied when the song actually has a move — the grid's
- * explicit coordinates keep every other cell where it was either way.
- */
-.cell.repo-cell {
-  background: var(--primary-bg); border-color: var(--primary-dim);
-  box-shadow: inset 3px 0 0 var(--primary);
-}
-.cell.repo-cell > .cell-label { color: var(--primary); }
-.repo-text {
-  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi);
-  font-size: calc(clamp(22px, 3vw, 40px) * var(--tier-scale, 1) * var(--fit, 1));
-  line-height: 1.15; overflow-wrap: anywhere; overflow: hidden;
-}
-
-/* The configurable grid. Explicit coordinates — never reflows per song. */
-.live-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--grid-cols), 1fr);
-  grid-template-rows: repeat(var(--grid-rows), 1fr);
-  gap: 10px; min-height: 0; min-width: 0;
-}
-
-.cell {
-  display: flex; flex-direction: column; gap: 6px; padding: 14px; overflow: hidden;
-  background: var(--surface); border: 1px solid var(--hair); min-width: 0; min-height: 0;
-}
-.cell > .cell-label {
-  flex: none; font-family: var(--cond); font-size: 10.5px; font-weight: var(--w-bold);
-  letter-spacing: var(--ls-label); color: var(--txt-mid); text-transform: uppercase;
-}
-.cell > .cell-body { flex: 1; min-height: 0; overflow: hidden; }
-
-/* Rows block — fixed columns so a description starts at the same
-   x-position on every row. */
-.codetable {
-  display: grid; align-content: start; justify-content: start;
-  width: max-content; max-width: 100%;
-  font-size: calc(clamp(15px, 1.6vw, 26px) * var(--tier-scale, 1) * var(--fit, 1));
-}
-.codetable.cols2 { grid-template-columns: 70px 1fr; }
-.codetable.cols3 { grid-template-columns: 70px minmax(90px, max-content) 1fr; }
-.codetable .num {
-  display: flex; align-items: center; justify-content: flex-end;
-  padding: 0.24em 0.5em;
-}
-.codetable .val {
-  padding: 0.24em 0.5em; font-family: var(--mono); font-weight: var(--w-semibold);
-  color: var(--txt-hi); white-space: nowrap;
-}
-.codetable .aside {
-  padding: 0.24em 0.5em; font-family: var(--mono); color: var(--txt-mid); white-space: nowrap;
-}
-.codetable .band { background: rgba(255, 255, 255, 0.03); }
-
-/*
- * Screens block. Screen name in a fixed column, then the timeline of what
- * feeds it — the whole point is that the eye runs left to right along one
- * screen's life through the song.
- */
-.screens {
-  display: grid; grid-template-columns: max-content 1fr;
-  align-content: start; gap: 0.3em 0.7em; width: 100%;
-  font-size: calc(clamp(15px, 1.6vw, 26px) * var(--tier-scale, 1) * var(--fit, 1));
-}
-.screen-name {
-  font-family: var(--mono); font-weight: var(--w-semibold); color: var(--txt-hi);
-  white-space: nowrap; align-self: center;
-}
-.screen-track { display: flex; gap: 2px; min-width: 0; align-items: stretch; }
-.screen-seg {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 0; padding: 0.18em 0.35em;
-  font-family: var(--mono); font-weight: var(--w-black); letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums; font-size: 0.8em;
-  white-space: nowrap; overflow: hidden;
-}
-
-/* Tags block */
-.tagrow {
-  display: flex; flex-wrap: wrap; gap: 0.35em 0.4em;
-  font-size: calc(clamp(18px, 2.4vw, 40px) * var(--tier-scale, 1) * var(--fit, 1));
-}
-.tagrow span {
-  border: 1px solid var(--hair2); padding: 0.1em 0.45em;
-  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi); white-space: nowrap;
-}
-
-/* Single-line block */
-.linetext {
-  font-family: var(--cond); font-weight: var(--w-bold); color: var(--txt-hi);
-  font-size: calc(clamp(14px, 1.6vw, 26px) * var(--tier-scale, 1) * var(--fit, 1));
-  line-height: 1.25; overflow-wrap: anywhere; overflow: hidden;
-}
-
-/* ── Reposition interstitial — full page, unmissable, still dark ── */
-
-.interstitial {
-  grid-column: 2; grid-row: 1 / -1; display: flex; flex-direction: column;
-  justify-content: center; gap: var(--s-6); padding: 70px; min-width: 0;
-  /* The one literal in this file: the mockup specifies this exact warm
-     near-black for the reposition card and the system has no token for it. */
-  background: #0c0703;
-  background-image: repeating-linear-gradient(
-    -45deg, rgba(240, 168, 56, 0.07) 0 14px, transparent 14px 34px
-  );
-  box-shadow: inset 0 0 0 2px var(--primary-dim);
-}
-.interstitial .kicker {
-  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
-  letter-spacing: 0.16em; color: var(--primary); text-transform: uppercase;
-}
-.interstitial .body {
-  font-family: var(--cond); font-size: clamp(30px, 4.4vw, 60px); font-weight: var(--w-bold);
-  line-height: var(--lh-heading); color: var(--txt-hi); overflow-wrap: anywhere;
-}
-.interstitial .foot {
-  display: flex; align-items: baseline; gap: 14px;
-  font-family: var(--sans); font-size: 13px; color: var(--txt-mid);
-}
-.interstitial .foot b { color: var(--txt); }
-.interstitial .foot .cue {
-  margin-left: auto; font-family: var(--cond); font-size: var(--fs-label-sm);
-  font-weight: var(--w-bold); letter-spacing: var(--ls-label); text-transform: uppercase;
-}
-
-.live-empty { grid-column: 2; grid-row: 1 / -1; display: grid; place-items: center; }
 
 /* ── Confirm dialog ──────────────────────────────────────────── */
 
@@ -613,3 +615,74 @@ input, textarea, select { font: inherit; }
 .seg-x:focus-visible { opacity: 1; }
 .seg-x:hover { color: var(--danger); border-color: var(--danger); }
 .seg-add { flex: none; }
+
+/* ── Prep: milestones, tracks, definitions ───────────────────── */
+
+.pin-list { display: flex; flex-direction: column; gap: var(--s-2); margin-bottom: var(--s-5); }
+.pin-edit {
+  border: 1px solid var(--hair); border-left: 3px solid var(--hair3);
+  background: var(--surface);
+}
+.pin-edit.lane-reposition { border-left-color: var(--primary); background: var(--primary-bg); }
+.pin-edit-head {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--hair);
+  background: var(--surface2);
+}
+.pin-edit-head .kind {
+  font-family: var(--cond); font-size: var(--fs-label); font-weight: var(--w-bold);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-hi);
+}
+.pin-edit-body { padding: var(--s-3); }
+.pos { display: flex; align-items: center; gap: var(--s-2); }
+.pos input[type='range'] { width: 160px; accent-color: var(--primary); }
+.pos .pct {
+  font-family: var(--mono); font-size: var(--fs-mono-sm); color: var(--txt);
+  width: 34px; text-align: right;
+}
+.shot-grid { display: flex; flex-direction: column; gap: 6px; }
+.shot-row { display: grid; grid-template-columns: 24px 1fr; gap: var(--s-2); align-items: center; }
+
+.track-edit { border: 1px solid var(--hair); background: var(--surface); margin-bottom: var(--s-3); }
+.track-edit-head {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--hair);
+  background: var(--surface2);
+}
+.track-lane.edit { height: 52px; margin: var(--s-3); }
+.track-lane.edit .track-block { position: relative; cursor: pointer; }
+.tb-pct {
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--txt-mid);
+  position: absolute; right: 4px; top: 3px;
+}
+/* Dividers split the track; only the two blocks either side move.
+   The hit area sits *inside* its block rather than straddling the edge:
+   overhanging it put half the target under the next block, which paints
+   later and swallowed the drag. */
+.divider {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 12px;
+  cursor: col-resize; z-index: 3;
+}
+.divider::after {
+  content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--hair3);
+}
+.divider:hover::after { background: var(--primary); }
+
+.block-form {
+  display: flex; flex-direction: column; gap: var(--s-2);
+  padding: var(--s-3); border-top: 1px solid var(--hair); background: var(--canvas);
+}
+.swatch { width: 10px; height: 10px; display: inline-block; margin-right: 5px; }
+.swatch-btn {
+  width: 22px; height: 22px; border: 1px solid var(--hair2); cursor: pointer; padding: 0;
+}
+.swatch-btn.on { border-color: var(--txt-hi); box-shadow: inset 0 0 0 1px var(--bg); }
+
+.def-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--s-5); }
+.def-row {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: 6px var(--s-2); border: 1px solid var(--hair); background: var(--surface);
+}
+.def-row .cell-input { flex: 1; min-width: 0; }
+select.field { text-transform: none; font-family: var(--sans); font-size: 12.5px; }

@@ -1,222 +1,236 @@
-import type { BlockRow, GridCell, Project, ScreenRow } from './types';
-import { GRID_COLS, GRID_ROWS, REPOSITION, repositionCell } from './types';
-import { DEFAULT_LAYOUT, emptyBlocks } from './defaults';
+import type {
+  CameraDefinition,
+  MilestonePin,
+  Project,
+  Song,
+  TrackBlock,
+  TrackDefinition,
+} from './types';
+import { normaliseWidths } from './types';
+import { CAMERA_COLORS, TRACK_COLORS, BLACK_COLOR, newTrack } from './defaults';
 import { uid } from './util';
 
 /**
  * Persisted-state migrations.
  *
  * This data sits on a working device between shows, so a schema change has to
- * convert it, never reset it. Each step is one version bump and must be safe
- * to run against partially-shaped data — anything unrecognised falls back to
- * an empty value rather than throwing.
+ * convert it, never reset it — losing a show's prep to an app update is the
+ * worst failure this app has. Steps are cumulative: `migrate` runs every step
+ * above the stored version, and each must survive partially-shaped data.
+ *
+ * Everything before v5 described a fixed grid of content blocks. v5 replaces
+ * that with a timeline of pins and screen tracks. The two models do not line
+ * up field for field, so the rule for this step is: **nothing is discarded**.
+ * What maps structurally is mapped; what does not becomes a Note pin, which
+ * is exactly what a note is for.
  */
 
-export const STORE_VERSION = 4;
+export const STORE_VERSION = 5;
 
-interface LegacyRow {
-  id?: string;
-  cam?: string;
-  preset?: string;
-  screen?: string;
-  shot?: string;
-  note?: string;
+type Legacy = Record<string, unknown>;
+
+const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+const arr = (v: unknown): Legacy[] => (Array.isArray(v) ? (v as Legacy[]) : []);
+
+/** Cameras seen anywhere in the old data, so the master list isn't invented. */
+function collectCameras(songs: Legacy[]): CameraDefinition[] {
+  const seen = new Set<number>();
+  for (const s of songs) {
+    const b = (s.blocks ?? {}) as Legacy;
+    for (const key of ['presets', 'firstShots']) {
+      for (const r of arr(b[key])) {
+        const n = parseInt(str(r.a), 10);
+        if (Number.isFinite(n) && n > 0) seen.add(n);
+      }
+    }
+    for (const row of arr(b.camScreen)) {
+      for (const sg of arr(row.segments)) {
+        const n = parseInt(str(sg.source), 10);
+        if (Number.isFinite(n) && n > 0) seen.add(n);
+      }
+    }
+  }
+  const nums = [...seen].sort((a, b) => a - b);
+  // Always leave a usable list, even for a project that never named a camera.
+  const list = nums.length > 0 ? nums : [1, 2, 3, 4];
+  return list.map((n) => ({
+    id: `C${String(n).padStart(2, '0')}`,
+    label: `Cam ${n}`,
+    badgeColor: CAMERA_COLORS[(n - 1) % CAMERA_COLORS.length],
+  }));
 }
 
-/** v1 grid was 12 x 8; v2 is 16 x 12. Same proportions, finer steps. */
-const SCALE_X = GRID_COLS / 12;
-const SCALE_Y = GRID_ROWS / 8;
+const camId = (raw: string): string | undefined => {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) ? `C${String(n).padStart(2, '0')}` : undefined;
+};
 
-function scaleCell(c: GridCell): GridCell {
-  const x = Math.round(c.x * SCALE_X);
-  const y = Math.round(c.y * SCALE_Y);
+/**
+ * Screens were already timelines in v4 (a screen plus ordered segments), so
+ * they become tracks almost directly: each distinct screen name is a track,
+ * and its segments become blocks with widths from their spans.
+ */
+function collectTracks(songs: Legacy[]): TrackDefinition[] {
+  const names: string[] = [];
+  for (const s of songs) {
+    const b = (s.blocks ?? {}) as Legacy;
+    for (const row of arr(b.camScreen)) {
+      const name = str(row.screen).trim();
+      if (name && !names.includes(name)) names.push(name);
+    }
+  }
+  if (names.length === 0) return [newTrack('Center Screen')];
+  return names.map((name) => ({ ...newTrack(name), name }));
+}
+
+function trackDataFor(song: Legacy, tracks: TrackDefinition[]) {
+  const b = (song.blocks ?? {}) as Legacy;
+  const data: Record<string, TrackBlock[]> = {};
+
+  for (const row of arr(b.camScreen)) {
+    const track = tracks.find((t) => t.name === str(row.screen).trim());
+    if (!track) continue;
+    const segs = arr(row.segments);
+    if (segs.length === 0) continue;
+    const total = segs.reduce(
+      (sum, sg) => sum + Math.max(1, Number(sg.span) || 1),
+      0,
+    );
+    data[track.id] = normaliseWidths(
+      segs.map((sg) => {
+        const source = str(sg.source).trim();
+        const isCam = Number.isFinite(parseInt(source, 10));
+        return {
+          id: uid('b_'),
+          widthPercent: ((Math.max(1, Number(sg.span) || 1) / total) * 100),
+          label: source || 'Black',
+          // Camera hues belong to cameras; a track block gets a track colour.
+          color: source ? TRACK_COLORS[0] : BLACK_COLOR,
+          aspectRatio: source ? undefined : ('black' as const),
+          text: isCam ? `Camera ${parseInt(source, 10)}` : source || undefined,
+        };
+      }),
+    );
+  }
+  return data;
+}
+
+/** Everything the timeline has no structural home for, kept as notes. */
+function leftoverNotes(b: Legacy): string[] {
+  const out: string[] = [];
+
+  const presets = arr(b.presets)
+    .map((r) => [str(r.a), str(r.b), str(r.c)].filter(Boolean).join(' '))
+    .filter(Boolean);
+  if (presets.length) out.push(`Presets — ${presets.join(', ')}`);
+
+  for (const [key, label] of [
+    ['instruments', 'Watch'],
+    ['solos', 'Solos'],
+    ['hits', 'Hits'],
+  ] as const) {
+    const tags = Array.isArray(b[key]) ? (b[key] as string[]) : [];
+    if (tags.length) out.push(`${label} — ${tags.join(', ')}`);
+  }
+  for (const [key, label] of [
+    ['intro', 'Intro'],
+    ['ending', 'Ending'],
+    ['energy', 'Energy'],
+    ['avoid', 'Avoid'],
+    ['note', 'Note'],
+  ] as const) {
+    const v = str(b[key]).trim();
+    if (v) out.push(label === 'Note' ? v : `${label} — ${v}`);
+  }
+  return out;
+}
+
+function songToTimeline(song: Legacy, tracks: TrackDefinition[]): Song {
+  const b = (song.blocks ?? {}) as Legacy;
+  const pins: MilestonePin[] = [];
+
+  // First shots open the song, so they anchor at the start.
+  const shots: Record<string, string> = {};
+  for (const r of arr(b.firstShots)) {
+    const id = camId(str(r.a));
+    if (id) shots[id] = str(r.b);
+  }
+  if (Object.keys(shots).length > 0) {
+    pins.push({
+      id: uid('pin_'),
+      positionPercent: 0,
+      cardType: 'first_shots',
+      cardData: { shots },
+    });
+  }
+
+  // A during-song move keeps its own card type — it must never become a note.
+  const during = str(song.repositionDuring).trim();
+  if (during) {
+    pins.push({
+      id: uid('pin_'),
+      positionPercent: 45,
+      cardType: 'reposition',
+      cardData: { destination: during },
+    });
+  }
+
+  // Everything else is spread across the song so the notes don't stack.
+  const notes = leftoverNotes(b);
+  notes.forEach((text, i) => {
+    pins.push({
+      id: uid('pin_'),
+      // Spread, and clear of the reposition pin, so nothing stacks.
+      positionPercent: notes.length === 1 ? 60 : 15 + (70 * i) / (notes.length - 1),
+      cardType: 'note',
+      cardData: { text },
+    });
+  });
+
+  const after = str(song.repositionAfter).trim();
+
   return {
-    block: c.block,
-    x: Math.min(x, GRID_COLS - 1),
-    y: Math.min(y, GRID_ROWS - 1),
-    w: Math.max(1, Math.min(Math.round(c.w * SCALE_X), GRID_COLS - x)),
-    h: Math.max(1, Math.min(Math.round(c.h * SCALE_Y), GRID_ROWS - y)),
+    id: str(song.id) || uid('s_'),
+    title: str(song.title),
+    pins,
+    tracksData: trackDataFor(song, tracks),
+    repositionAfter: after ? { cameras: [], destination: after } : undefined,
+    hasImage: Boolean(song.hasImage),
+    updatedAt: Number(song.updatedAt) || Date.now(),
   };
 }
 
-function toRows(legacy: unknown, b: 'preset' | 'screen' | 'shot'): BlockRow[] {
-  if (!Array.isArray(legacy)) return [];
-  return (legacy as LegacyRow[]).map((r) => ({
-    id: r.id ?? uid(),
-    a: r.cam ?? '',
-    b: r[b] ?? '',
-    c: b === 'preset' ? (r.note ?? '') : '',
-  }));
-}
-
-/**
- * A cam→screen pair becomes a screen with one segment: "camera 1 feeds LED L"
- * is the same statement as "LED L shows camera 1 for the whole song".
- */
-function toScreens(rows: BlockRow[]): ScreenRow[] {
-  return rows.map((r) => ({
-    id: r.id,
-    screen: r.b,
-    segments: [{ id: uid(), source: r.a, span: 1 }],
-  }));
-}
-
-/**
- * v1 -> v2
- *  - row blocks move from named fields (cam/preset/screen/shot) to positional
- *    a/b/c, so a new row-shaped block needs no new type
- *  - the single `note` block splits into intro/ending/energy/avoid/note; the
- *    old text is kept as `note` rather than guessed at
- *  - the template moves from the project to each playlist, and playlists gain
- *    per-song overrides
- *  - grid resolution goes 12x8 -> 16x12
- */
-function v1ToV2(projects: unknown): Project[] {
+/** Anything before v5 shared the same block shape closely enough to convert. */
+function toTimelineModel(projects: unknown): Project[] {
   if (!Array.isArray(projects)) return [];
 
-  return (projects as Record<string, unknown>[]).map((p) => {
-    const legacyLayout = Array.isArray(p.layout)
-      ? (p.layout as GridCell[]).map(scaleCell)
-      : DEFAULT_LAYOUT.map((c) => ({ ...c }));
-
-    const songs = Array.isArray(p.songs) ? p.songs : [];
-    const playlists = Array.isArray(p.playlists) ? p.playlists : [];
+  return (projects as Legacy[]).map((p) => {
+    const songs = arr(p.songs ?? p.bucket);
+    const cameras = collectCameras(songs);
+    const tracks = collectTracks(songs);
 
     return {
-      id: String(p.id ?? uid('p_')),
-      name: String(p.name ?? 'Untitled'),
-      createdAt: Number(p.createdAt ?? Date.now()),
-
-      songs: (songs as Record<string, unknown>[]).map((s) => {
-        const b = (s.blocks ?? {}) as Record<string, unknown>;
-        return {
-          id: String(s.id ?? uid('s_')),
-          title: String(s.title ?? ''),
-          blocks: {
-            ...emptyBlocks(),
-            presets: toRows(b.presets, 'preset'),
-            camScreen: toScreens(toRows(b.camScreen, 'screen')),
-            firstShots: toRows(b.firstShots, 'shot'),
-            instruments: Array.isArray(b.instruments)
-              ? (b.instruments as string[])
-              : [],
-            // The old catch-all stays a catch-all. Splitting one line across
-            // the new specific blocks would be guessing at the operator's
-            // intent, and a wrong guess is worse than no split.
-            note: typeof b.note === 'string' ? b.note : '',
-          },
-          repositionDuring: String(s.repositionDuring ?? ''),
-          repositionAfter: String(s.repositionAfter ?? ''),
-          hasImage: Boolean(s.hasImage),
-          updatedAt: Number(s.updatedAt ?? Date.now()),
-        };
-      }),
-
-      playlists: (playlists as Record<string, unknown>[]).map((pl) => ({
-        id: String(pl.id ?? uid('pl_')),
-        name: String(pl.name ?? 'Untitled show'),
-        date: String(pl.date ?? ''),
+      id: str(p.id) || uid('p_'),
+      name: str(p.name) || 'Untitled',
+      cameras,
+      tracks,
+      bucket: songs.map((s) => songToTimeline(s, tracks)),
+      playlists: arr(p.playlists).map((pl) => ({
+        id: str(pl.id) || uid('pl_'),
+        name: str(pl.name) || 'Untitled show',
+        date: str(pl.date),
         songIds: Array.isArray(pl.songIds) ? (pl.songIds as string[]) : [],
-        // Every playlist inherits what used to be the project-wide template,
-        // so nobody's live view changes shape on upgrade.
-        layout: legacyLayout.map((c) => ({ ...c })),
-        overrides: {},
-        createdAt: Number(pl.createdAt ?? Date.now()),
+        createdAt: Number(pl.createdAt) || Date.now(),
       })),
+      createdAt: Number(p.createdAt) || Date.now(),
     };
   });
 }
 
-/**
- * v2 -> v3
- *  - the during-song reposition band stops being a fixed strip above the grid
- *    and becomes a placeable cell inside it
- *
- * The band used to occupy its own space above a 12-row grid, so the grid now
- * has that space back. Existing cells are compressed into the rows below the
- * band rather than shifted off the bottom, which keeps a layout's reading
- * order and rough proportions intact.
- */
-const BAND_H = 2;
-
-function v2ToV3(projects: unknown): Project[] {
-  if (!Array.isArray(projects)) return projects as Project[];
-
-  const withBand = (layout: unknown): GridCell[] => {
-    if (!Array.isArray(layout)) return DEFAULT_LAYOUT.map((c) => ({ ...c }));
-    const cells = layout as GridCell[];
-    if (cells.some((c) => c.block === REPOSITION)) return cells;
-
-    const usable = GRID_ROWS - BAND_H;
-    const scaled = cells.map((c) => {
-      const y = Math.min(usable - 1, Math.round((c.y * usable) / GRID_ROWS));
-      const h = Math.max(
-        1,
-        Math.min(usable - y, Math.round((c.h * usable) / GRID_ROWS)),
-      );
-      return { ...c, y: y + BAND_H, h };
-    });
-    return [repositionCell(), ...scaled];
-  };
-
-  return (projects as Project[]).map((p) => ({
-    ...p,
-    playlists: (p.playlists ?? []).map((pl) => ({
-      ...pl,
-      layout: withBand(pl.layout),
-      overrides: Object.fromEntries(
-        Object.entries(pl.overrides ?? {}).map(([id, l]) => [id, withBand(l)]),
-      ),
-    })),
-  }));
-}
-
-/**
- * v3 -> v4
- *  - a screen stops being a single camera and becomes a timeline of sources,
- *    because a screen is often fed by a switcher bus (PGM, ME1) and can change
- *    source part-way through a song
- *
- * An existing "camera 1 feeds LED L" is exactly a screen with one segment, so
- * nothing is lost or guessed at.
- */
-function v3ToV4(projects: unknown): Project[] {
-  if (!Array.isArray(projects)) return projects as Project[];
-
-  return (projects as Project[]).map((p) => ({
-    ...p,
-    songs: (p.songs ?? []).map((song) => {
-      const cs = song.blocks?.camScreen as unknown;
-      if (!Array.isArray(cs)) return song;
-      // Already a timeline? Leave it.
-      const rows = cs as (BlockRow & Partial<ScreenRow>)[];
-      if (rows.every((r) => Array.isArray(r.segments))) return song;
-      return {
-        ...song,
-        blocks: {
-          ...song.blocks,
-          camScreen: rows.map((r) =>
-            Array.isArray(r.segments)
-              ? (r as unknown as ScreenRow)
-              : {
-                  id: r.id ?? uid(),
-                  screen: r.b ?? '',
-                  segments: [{ id: uid(), source: r.a ?? '', span: 1 }],
-                },
-          ),
-        },
-      };
-    }),
-  }));
-}
-
 export function migrate(persisted: unknown, version: number): unknown {
-  const state = (persisted ?? {}) as Record<string, unknown>;
+  const state = (persisted ?? {}) as Legacy;
   if (version >= STORE_VERSION) return state;
-
-  let projects = state.projects;
-  if (version < 2) projects = v1ToV2(projects);
-  if (version < 3) projects = v2ToV3(projects);
-  if (version < 4) projects = v3ToV4(projects);
-  return { ...state, projects };
+  // Every pre-v5 shape converts through the same step: the intermediate
+  // versions only ever moved blocks around inside a model v5 replaces.
+  return { ...state, projects: toTimelineModel(state.projects) };
 }

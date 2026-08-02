@@ -1,213 +1,147 @@
 import { describe, expect, it } from 'vitest';
 import { migrate } from './migrate';
 import type { Project } from './types';
-import { GRID_COLS, GRID_ROWS } from './types';
 
 /**
- * This data sits on a working device between shows. A schema change has to
- * convert it, never drop it — losing a show's prep to an app update is the
- * worst failure this app has.
+ * Everything before v5 described a fixed grid of content blocks. v5 is a
+ * timeline. The models do not line up field for field, so the rule for the
+ * step is that nothing is discarded: what maps structurally is mapped, and
+ * what does not becomes a note — which is what a note is for.
  */
 
-/** A v1 project exactly as the previous version persisted it. */
-const v1 = {
+/** A v4 project exactly as the previous version persisted it. */
+const v4 = {
   projects: [
     {
       id: 'p_1',
       name: 'Old Tour',
       createdAt: 1,
-      layout: [
-        { block: 'presets', x: 0, y: 0, w: 6, h: 5 },
-        { block: 'note', x: 6, y: 7, w: 6, h: 1 },
-      ],
       songs: [
         {
           id: 's_1',
           title: 'Opener',
           blocks: {
-            presets: [{ id: 'r1', cam: '1', preset: 'P2', note: 'wide' }],
-            camScreen: [{ id: 'r2', cam: '2', screen: 'LED L' }],
-            firstShots: [{ id: 'r3', cam: '3', shot: 'CU VOX' }],
+            presets: [{ id: 'r0', a: '1', b: 'P2', c: 'wide' }],
+            firstShots: [
+              { id: 'r1', a: '1', b: 'WIDE STAGE', c: '' },
+              { id: 'r2', a: '3', b: 'CU VOX', c: '' },
+            ],
+            camScreen: [
+              {
+                id: 'r3',
+                screen: 'LED L',
+                segments: [
+                  { id: 'g1', source: '4', span: 1 },
+                  { id: 'g2', source: 'PGM', span: 3 },
+                ],
+              },
+            ],
             instruments: ['VOX'],
-            note: 'no cuts in verse 1',
+            solos: [],
+            hits: [],
+            intro: 'Cold open',
+            ending: 'Hard stop',
+            energy: '',
+            avoid: 'No crowd',
+            note: 'watch stage right',
           },
-          repositionDuring: '',
-          repositionAfter: 'CAM 3 to pit',
+          repositionDuring: 'CAM 3 to downstage right',
+          repositionAfter: 'CAM 3 + 4 to pit',
           hasImage: false,
           updatedAt: 5,
         },
       ],
       playlists: [
-        {
-          id: 'pl_1',
-          name: 'Night One',
-          date: '2026-05-02',
-          songIds: ['s_1'],
-          createdAt: 2,
-        },
-        {
-          id: 'pl_2',
-          name: 'Night Two',
-          date: '2026-05-03',
-          songIds: ['s_1'],
-          createdAt: 3,
-        },
+        { id: 'pl_1', name: 'Night One', date: '2026-05-02', songIds: ['s_1'], createdAt: 2 },
       ],
     },
   ],
 };
 
-function run(): Project[] {
-  const out = migrate(structuredClone(v1), 1) as { projects: Project[] };
-  return out.projects;
-}
+const run = (): Project[] =>
+  (migrate(structuredClone(v4), 4) as { projects: Project[] }).projects;
 
-/** A layout's blocks, ignoring the reposition cell every layout now carries. */
-function blocksOf(layout: Project['playlists'][number]['layout']) {
-  return layout.filter((c) => c.block !== 'reposition').map((c) => c.block);
-}
-
-describe('v1 -> v2 migration', () => {
+describe('pre-v5 -> v5 migration', () => {
   it('keeps the show: project, songs, playlists and running order', () => {
     const [p] = run();
     expect(p.name).toBe('Old Tour');
-    expect(p.songs).toHaveLength(1);
-    expect(p.playlists.map((pl) => pl.name)).toEqual(['Night One', 'Night Two']);
+    expect(p.bucket).toHaveLength(1);
     expect(p.playlists[0].songIds).toEqual(['s_1']);
+    expect(p.bucket[0].title).toBe('Opener');
   });
 
-  it('converts named row fields to positional columns', () => {
+  it('builds the master camera list from the cameras actually used', () => {
     const [p] = run();
-    const b = p.songs[0].blocks;
-    expect(b.presets[0]).toMatchObject({ a: '1', b: 'P2', c: 'wide' });
-    // A cam→screen pair becomes a screen with one segment.
-    expect(b.camScreen[0]).toMatchObject({ screen: 'LED L' });
-    expect(b.camScreen[0].segments).toMatchObject([{ source: '2', span: 1 }]);
-    expect(b.firstShots[0]).toMatchObject({ a: '3', b: 'CU VOX' });
+    // Cameras 1, 3 and 4 appear across presets, first shots and screens.
+    expect(p.cameras.map((c) => c.id)).toEqual(['C01', 'C03', 'C04']);
+    // Each gets its own reserved hue.
+    expect(new Set(p.cameras.map((c) => c.badgeColor)).size).toBe(3);
   });
 
-  it('keeps the old note as a note rather than guessing where it belongs', () => {
+  it('turns first shots into a first_shots pin at the start of the song', () => {
     const [p] = run();
-    const b = p.songs[0].blocks;
-    expect(b.note).toBe('no cuts in verse 1');
-    // The new specific blocks start empty — splitting one line across them
-    // would be inventing the operator's intent.
-    expect([b.intro, b.ending, b.energy, b.avoid]).toEqual(['', '', '', '']);
+    const pin = p.bucket[0].pins.find((x) => x.cardType === 'first_shots')!;
+    expect(pin.positionPercent).toBe(0);
+    expect(pin.cardData.shots).toEqual({ C01: 'WIDE STAGE', C03: 'CU VOX' });
   });
 
-  it('preserves repositioning', () => {
+  it('keeps a during-song move as a reposition card, never a note', () => {
     const [p] = run();
-    expect(p.songs[0].repositionAfter).toBe('CAM 3 to pit');
+    const pin = p.bucket[0].pins.find((x) => x.cardType === 'reposition')!;
+    expect(pin.cardData.destination).toBe('CAM 3 to downstage right');
   });
 
-  it('gives every playlist the old project-wide template, so nothing moves', () => {
+  it('keeps an after-song move as the full-page card', () => {
     const [p] = run();
-    for (const pl of p.playlists) {
-      expect(blocksOf(pl.layout)).toEqual(['presets', 'note']);
-      expect(pl.overrides).toEqual({});
+    expect(p.bucket[0].repositionAfter?.destination).toBe('CAM 3 + 4 to pit');
+  });
+
+  it('turns screens into tracks, with segment spans becoming widths', () => {
+    const [p] = run();
+    const track = p.tracks.find((t) => t.name === 'LED L')!;
+    const blocks = p.bucket[0].tracksData[track.id];
+    expect(blocks.map((b) => b.label)).toEqual(['4', 'PGM']);
+    // spans 1 and 3 -> 25% and 75%, still summing to 100.
+    expect(blocks[0].widthPercent).toBeCloseTo(25);
+    expect(blocks[1].widthPercent).toBeCloseTo(75);
+    expect(blocks.reduce((s, b) => s + b.widthPercent, 0)).toBeCloseTo(100);
+  });
+
+  it('discards nothing: every leftover block survives as a note', () => {
+    const [p] = run();
+    const notes = p.bucket[0].pins
+      .filter((x) => x.cardType === 'note')
+      .map((x) => x.cardData.text ?? '')
+      .join(' | ');
+    for (const fragment of ['P2', 'VOX', 'Cold open', 'Hard stop', 'No crowd', 'watch stage right']) {
+      expect(notes).toContain(fragment);
     }
   });
 
-  it('rescales the old 12x8 grid and keeps every cell in bounds', () => {
+  it('spreads those notes across the song rather than stacking them', () => {
     const [p] = run();
-    for (const cell of p.playlists[0].layout) {
-      expect(cell.x + cell.w).toBeLessThanOrEqual(GRID_COLS);
-      expect(cell.y + cell.h).toBeLessThanOrEqual(GRID_ROWS);
-      expect(cell.w).toBeGreaterThan(0);
-      expect(cell.h).toBeGreaterThan(0);
+    const positions = p.bucket[0].pins
+      .filter((x) => x.cardType === 'note')
+      .map((x) => x.positionPercent);
+    expect(new Set(positions).size).toBe(positions.length);
+    for (const v of positions) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(100);
     }
-    // 6/12 of the old width is still half the new one.
-    const presets = p.playlists[0].layout.find((c) => c.block === 'presets')!;
-    expect(presets.w).toBe(8);
   });
 
   it('does not re-run against already-migrated state', () => {
-    const already = { projects: [{ id: 'p_9', name: 'New', songs: [], playlists: [], createdAt: 1 }] };
-    expect(migrate(already, 4)).toBe(already);
+    const already = { projects: [] };
+    expect(migrate(already, 5)).toBe(already);
   });
 
   it('survives junk instead of throwing', () => {
-    expect(migrate({ projects: 'nonsense' }, 1)).toEqual({ projects: [] });
+    expect(migrate({ projects: 'nonsense' }, 4)).toEqual({ projects: [] });
     expect(migrate(undefined, 1)).toEqual({ projects: [] });
-    const partial = migrate({ projects: [{ id: 'p' }] }, 1) as { projects: Project[] };
-    expect(partial.projects[0].songs).toEqual([]);
+    const partial = migrate({ projects: [{ id: 'p' }] }, 4) as { projects: Project[] };
+    expect(partial.projects[0].bucket).toEqual([]);
     expect(partial.projects[0].playlists).toEqual([]);
-  });
-});
-
-describe('v3 -> v4: screens become timelines', () => {
-  /** A v3 project: screens are still one camera per row. */
-  const v3 = {
-    projects: [
-      {
-        id: 'p_1',
-        name: 'Tour',
-        createdAt: 1,
-        songs: [
-          {
-            id: 's_1',
-            title: 'Opener',
-            blocks: {
-              presets: [],
-              firstShots: [],
-              camScreen: [
-                { id: 'r1', a: '4', b: 'LED L', c: '' },
-                { id: 'r2', a: '2', b: 'CENTRE', c: '' },
-              ],
-              instruments: [],
-              solos: [],
-              hits: [],
-              intro: '',
-              ending: '',
-              energy: '',
-              avoid: '',
-              note: '',
-            },
-            repositionDuring: '',
-            repositionAfter: '',
-            hasImage: false,
-            updatedAt: 1,
-          },
-        ],
-        playlists: [
-          {
-            id: 'pl_1',
-            name: 'Night',
-            date: '2026-05-02',
-            songIds: ['s_1'],
-            layout: [{ block: 'reposition', x: 0, y: 0, w: 16, h: 2 }],
-            overrides: {},
-            createdAt: 1,
-          },
-        ],
-      },
-    ],
-  };
-
-  const run = () =>
-    (migrate(structuredClone(v3), 3) as { projects: Project[] }).projects;
-
-  it('turns each cam→screen pair into a screen with one segment', () => {
-    const [p] = run();
-    const cs = p.songs[0].blocks.camScreen;
-    expect(cs).toHaveLength(2);
-    expect(cs[0]).toMatchObject({ screen: 'LED L' });
-    expect(cs[0].segments).toMatchObject([{ source: '4', span: 1 }]);
-    expect(cs[1]).toMatchObject({ screen: 'CENTRE' });
-    expect(cs[1].segments).toMatchObject([{ source: '2', span: 1 }]);
-  });
-
-  it('leaves an already-converted timeline alone', () => {
-    const already = structuredClone(v3) as unknown as {
-      projects: { songs: { blocks: { camScreen: unknown } }[] }[];
-    };
-    // Deliberately already v4-shaped, to prove the step is idempotent.
-    already.projects[0].songs[0].blocks.camScreen = [
-      { id: 'x', screen: 'LED R', segments: [{ id: 'g', source: 'PGM', span: 1 }] },
-    ];
-    const out = (migrate(already, 3) as { projects: Project[] }).projects;
-    expect(out[0].songs[0].blocks.camScreen[0].segments).toMatchObject([
-      { source: 'PGM' },
-    ]);
+    // A project that never named a camera still gets a usable list.
+    expect(partial.projects[0].cameras.length).toBeGreaterThan(0);
   });
 });

@@ -8,20 +8,18 @@ export function SongsTab({ project }: { project: Project }) {
   const addSong = useStore((s) => s.addSong);
   const deleteSong = useStore((s) => s.deleteSong);
   const [selected, setSelected] = useState<string | null>(
-    project.songs[0]?.id ?? null,
+    project.bucket[0]?.id ?? null,
   );
   const [filter, setFilter] = useState('');
   const [confirming, setConfirming] = useState<string | null>(null);
 
-  const song = project.songs.find((s) => s.id === selected);
-  const visible = project.songs.filter((s) =>
+  const song = project.bucket.find((s) => s.id === selected);
+  const visible = project.bucket.filter((s) =>
     s.title.toLowerCase().includes(filter.toLowerCase()),
   );
-
   const usedIn = (songId: string) =>
     project.playlists.filter((pl) => pl.songIds.includes(songId)).length;
-
-  const target = project.songs.find((s) => s.id === confirming);
+  const target = project.bucket.find((s) => s.id === confirming);
 
   return (
     <div className="pane">
@@ -45,7 +43,7 @@ export function SongsTab({ project }: { project: Project }) {
 
         {visible.length === 0 ? (
           <div className="empty-state">
-            The bucket holds every song you have ever entered for this project.
+            The bucket holds every song you have ever built for this project.
             Playlists pull from it.
           </div>
         ) : (
@@ -62,13 +60,10 @@ export function SongsTab({ project }: { project: Project }) {
                     <div className="sub">
                       {songIsEmpty(s)
                         ? 'empty'
-                        : `in ${usedIn(s.id)} playlist${usedIn(s.id) === 1 ? '' : 's'}`}
+                        : `${s.pins.length} milestone${s.pins.length === 1 ? '' : 's'}`}
                     </div>
                   </span>
-                  <span className="marker">
-                    {s.repositionDuring ? '●' : ''}
-                    {s.repositionAfter ? '▼' : ''}
-                  </span>
+                  <span className="marker">{s.repositionAfter ? '▼' : ''}</span>
                 </button>
               </li>
             ))}
@@ -80,7 +75,7 @@ export function SongsTab({ project }: { project: Project }) {
         {song ? (
           <SongEditor
             key={song.id}
-            projectId={project.id}
+            project={project}
             song={song}
             usedIn={usedIn(song.id)}
             onDelete={() => setConfirming(song.id)}

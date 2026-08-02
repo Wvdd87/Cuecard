@@ -2,14 +2,10 @@ import { useState } from 'react';
 import { useStore } from '../../lib/store';
 import { ProjectsScreen } from './ProjectsScreen';
 import { SongsTab } from './SongsTab';
-import { PlaylistsTab, type Editing } from './PlaylistsTab';
+import { PlaylistsTab } from './PlaylistsTab';
+import { SetupTab } from './SetupTab';
 import { TopNav, type NavKey } from './TopNav';
 
-/**
- * The prep shell. It owns which section is showing and whether a template
- * editor is open, because the top nav needs to drive both — Template is a
- * destination in the design, not just a button inside the playlist screen.
- */
 export function PrepView() {
   const projectId = useStore((s) => s.session.projectId);
   const project = useStore((s) =>
@@ -18,9 +14,8 @@ export function PrepView() {
   const setProjectId = useStore((s) => s.setProjectId);
   const goLive = useStore((s) => s.goLive);
 
-  const [tab, setTab] = useState<'songs' | 'playlists'>('playlists');
+  const [tab, setTab] = useState<'songs' | 'playlists' | 'setup'>('playlists');
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Editing>(null);
 
   if (!projectId || !project) return <ProjectsScreen />;
 
@@ -34,16 +29,13 @@ export function PrepView() {
         setProjectId(null);
         break;
       case 'songs':
-        setEditing(null);
         setTab('songs');
         break;
       case 'playlists':
-        setEditing(null);
         setTab('playlists');
         break;
-      case 'template':
-        setTab('playlists');
-        setEditing({ kind: 'template' });
+      case 'setup':
+        setTab('setup');
         break;
       case 'live':
         if (playlist && liveReady) goLive(project.id, playlist.id, 0);
@@ -51,15 +43,11 @@ export function PrepView() {
     }
   };
 
-  const active: NavKey =
-    editing ? 'template' : tab === 'songs' ? 'songs' : 'playlists';
-
   return (
     <div className="prep">
       <TopNav
-        active={active}
+        active={tab}
         project={project}
-        canTemplate={Boolean(playlist)}
         canGoLive={liveReady}
         onNavigate={navigate}
       />
@@ -71,10 +59,9 @@ export function PrepView() {
             project={project}
             selected={playlistId}
             setSelected={setSelectedPlaylist}
-            editing={editing}
-            setEditing={setEditing}
           />
         )}
+        {tab === 'setup' && <SetupTab project={project} />}
       </div>
     </div>
   );

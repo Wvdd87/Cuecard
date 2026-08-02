@@ -26,142 +26,87 @@ immediately. Delete it whenever.
 ## Model
 
 ```
-Project  (one per artist)
-├── bucket     every song ever entered for this artist
-└── playlists  named, dated, ordered *references* into the bucket
-    ├── layout     the show's default live-view template
-    └── overrides  per-song layouts, for songs the default doesn't fit
+Project ─┬─ cameras    master camera list, each with its own badge colour
+         ├─ tracks     screen definitions, identical on every song
+         ├─ bucket     every song ever built for this artist
+         └─ playlists  named, dated, ordered *references* into the bucket
 ```
 
 A playlist never copies song content. Edit a song once, it updates in every
-playlist that uses it. Duplicate a playlist for the next tour stop and tweak
-it — both keep pointing at the same songs.
+playlist that uses it. Duplicate a playlist for the next tour stop and both
+keep pointing at the same songs.
 
-The live view always runs off a playlist, never off the raw bucket.
+## A song is a timeline
 
-### Song content: a library of small blocks
+The live view for a song is one fully-visible dashboard — everything for that
+song on screen at once, no scrolling or scrubbing. The whole idea is steering
+the eye left to right: as something happens, focus moves rightward to what's
+next.
 
-Eleven blocks in three groups, no free text. They are deliberately small and
-specific rather than a few big catch-all zones — the editor exists so you can
-say exactly what goes where and how much room it gets.
+```
+┌──────────────────────────────────────────────────────────────┐
+│ SONG TITLE                                    NEXT: ······    │  A
+├────────┬─────────────────────────────────────────────────────┤
+│ 1 ···  │  first shots  [card]                                │  B
+│ 2 ···  │  reposition                    [card]               │
+│ 3 ···  │  shot                 [card]                        │
+│ 4 ···  │  note                                    [card]     │
+│        │  ───●──────────────●──────────●───────────●─────    │
+│        ├─────────────────────────────────────────────────────┤
+│        │  Center Screen [ IMAG ][ Content ][ IMAG ]          │  C
+│        │  Side IMAG     [ Scenic ][ IMAG ]                    │
+└────────┴─────────────────────────────────────────────────────┘
+```
 
-| Group | Blocks |
+**Region A** — song title top left, next song top right, and the playlist rail
+for jump-anywhere navigation.
+
+**Region B** — milestone pins along the song, each connected up to a cue card.
+Four card types: **First shots** (pulls the project's camera list, one short
+field each, unused cameras left blank), **Specific shot**, **Reposition** and
+**Note**.
+
+A card's horizontal position follows the song's own structure, so it changes
+song to song. Its **lane does not**: first shots are always the top band,
+reposition always its own, and so on. The operator always knows which band to
+check even though where it falls left-to-right varies.
+
+**Region C** — screen tracks. Track definitions are set once at project level
+and are identical on every song, so this region never changes shape. Within a
+track, blocks always sum to 100% of the song; in prep, adding a block splits
+the track and gives you a draggable divider. Tracks don't align to each other
+or to the pins above — each is its own independent horizontal grid.
+
+## Reposition
+
+First-class, never a generic note, because missing one is a real production
+problem. It renders two ways depending on when it happens:
+
+| | How it shows |
 |---|---|
-| Cameras | Presets, First shots, Screens |
-| Watch | Watch, Solos, Hits |
-| Structure | Intro, Ending, Energy, Avoid, Note |
+| **After a song** | a full-page screen between this song and the next — outside the timeline layout entirely, and unskippable |
+| **During a song** | a Reposition card in its own fixed lane, while the show keeps running |
 
-**Screens** is a timeline rather than a list: each screen shows the sources
-that feed it in order across the song — "LED L is camera 4, then 3, then 4
-again; LED R is PGM all song". A source is a camera number or a switcher bus
-(PGM, ME1, …). Cameras carry their reserved hue; buses stay neutral, because
-those eight hues mean "camera" and nothing else.
-
-Structure is what would otherwise be one "notes" block. Split, because a
-paragraph is unreadable in half a second and "the ending" is a different
-question from "what not to do".
-
-Each block is one of three shapes — rows, tags, or a single line — so adding
-one to the library is a table entry in [types.ts](src/lib/types.ts), not new
-rendering code.
-
-A block with no content doesn't render live at all: its grid space is simply
-left dark, never an empty placeholder.
-
-### Camera repositioning is not a block
-
-It's a property of the transition, set per song, in two independent forms:
-
-| | Where it shows | Rail marker |
-|---|---|---|
-| **During** the song | the reposition cell, the whole song long | `●` |
-| **After** the song | full-page card between this song and the next | `▼` |
-
-The after-song card takes over the header and the entire content stage, so the
-next song's cues are unreachable until it's acknowledged — it cannot be skipped
-past by accident. The playlist rail deliberately stays visible on it: if the
-artist audibles during a changeover, the operator still needs to be able to
-jump.
-
-## Live view
-
-```
-┌───────────────────────────────────────────────────┐
-│ SONG TITLE                             NEXT: ···  │  fixed
-├─────────┬─────────────────────────────────────────┤
-│ playlist│  reposition band (during-song move)     │  fixed
-│ rail    ├─────────────────────────────────────────┤
-│ (jump   │                                         │
-│  to any │       configurable 16 × 12 grid         │
-│  song)  │                                         │
-└─────────┴─────────────────────────────────────────┘
-```
-
-Title, next-song slot, rail and reposition band are fixed and unmovable. Only
-the central grid is configurable.
-
-The grid never reflows. Cell coordinates are explicit, so a song missing a
-block leaves a hole rather than shifting everything else. Verified: the grid's
-bounding box is identical between a song with a during-move and one without.
-
-The reposition band is a cell in that grid: **movable and resizable like any
-block, but never removable**. Wherever the operator puts it, a during-song move
-appears there for the whole song — the layout cannot be saved without it. Songs
-without a move leave that space dark, and nothing else shifts.
-
-## The template editor
-
-**One default template per playlist.** Every song in the show uses it — that
-is what keeps the live view consistent song to song. Duplicating a playlist
-carries its template forward, so a template stays stable across a run of dates
-without being pinned to the artist.
-
-**Per-song overrides.** When one song carries more than the default template
-holds, open that song in the same editor and adjust it. The override applies
-to that song, in that playlist, only — the default and every other song are
-untouched. It starts as a copy of the default, so you're adjusting something
-familiar rather than starting from a blank page. "Revert to playlist default"
-drops it.
-
-Overridden songs are marked in the running order, and the editor warns when a
-song has content in blocks the current layout has nowhere to put.
-
-**Content fits the space, not the other way around.** A block never grows to
-fit its content; content that a block is too small to hold shrinks instead of
-clipping. You shape the space, the text follows. Scaling only ever goes
-downward — letting content also grow to fill spare room put the same type tier
-at seven different sizes on one screen, which read as chaos rather than as a
-scale.
-
-The preview is a true scale model of the live stage, so what fits in the
-editor fits in the room.
-
-### Navigation
+## Navigation
 
 | | |
 |---|---|
-| `space` `→` `↓` `enter` | next song, or into/through a reposition card |
-| `←` `↑` | back — symmetric, you pass back through the same card |
-| `home` | first song |
-| `[` `]` | dimmer / brighter |
-| `f` | fullscreen |
-| tap the stage | next |
-| tap the rail | jump straight to any song |
+| `space` | advance to the next song — the expected path through a show |
+| `↑` `↓` | step through the playlist, for when the artist reorders or skips |
+| rail click | jump straight to any song |
+| `[` `]` · `f` | dimmer / brighter · fullscreen |
 
-Rail jumps bypass reposition cards by design: an explicit jump is intentional.
+All one-handed, without looking away to hunt for a key.
 
-`Escape` only closes the tools popover — leaving the live view mid-show takes a
-deliberate button press.
+## Colour
 
-## Prep view
+Three systems that never overlap, each answering a different question:
 
-The same data, rendered differently: full detail, editable, and the only place
-the reference image appears. Two tabs — **Playlists** (build, reorder,
-duplicate, go live, export PDF, edit the template, override a song's layout)
-and **Bucket** (song content, reposition flags, images).
-
-The template editor previews against a real song using the real live renderer
-and the real fit logic, so what you shape is what you get in the room.
+- **Accent** (amber) — what is active or selected. Nothing else.
+- **Cameras** — eight reserved hues; a camera keeps its colour everywhere it
+  appears, so it's recognisable without reading the number.
+- **Tracks** — screen content and states, including a consistent treatment for
+  black/off. Defined once at project level.
 
 ## Reliability
 

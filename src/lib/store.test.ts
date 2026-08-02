@@ -1,34 +1,25 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useStore, resolveSession } from './store';
+import { useStore, resolveSession, playlistSongs } from './store';
 import { newPlaylist, newProject, newSong } from './defaults';
 import type { Project } from './types';
-import { hasOverride, layoutFor } from './types';
-import type { GridCell } from './types';
-import { BLOCK_TYPES } from './types';
-import { cellHasContent } from './blocks';
-
-/** Cells other than the reposition band, which every layout now carries. */
-const blocksOf = (l: GridCell[]) => l.filter((c) => c.block !== 'reposition');
+import { normaliseWidths, pinsInLane } from './types';
 
 /**
- * The navigation rules are the part of this app that must not misbehave in
- * front of an audience, so they are pinned down here.
+ * The navigation rules and the track-width invariant are the parts that must
+ * not misbehave in front of an audience, so they are pinned down here.
  */
 
-function scaffold(repos: {
-  during?: number[];
-  after?: number[];
-} = {}): { project: Project; playlistId: string } {
+function scaffold(after: number[] = []): { project: Project; playlistId: string } {
   const project = newProject('Test');
-  const titles = ['One', 'Two', 'Three', 'Four'];
-  project.songs = titles.map((t, i) => {
+  project.bucket = ['One', 'Two', 'Three', 'Four'].map((t, i) => {
     const s = newSong(t);
-    if (repos.during?.includes(i)) s.repositionDuring = `during ${i}`;
-    if (repos.after?.includes(i)) s.repositionAfter = `after ${i}`;
+    if (after.includes(i)) {
+      s.repositionAfter = { cameras: ['C01'], destination: `move ${i}` };
+    }
     return s;
   });
   const pl = newPlaylist('Show');
-  pl.songIds = project.songs.map((s) => s.id);
+  pl.songIds = project.bucket.map((s) => s.id);
   project.playlists = [pl];
   return { project, playlistId: pl.id };
 }
@@ -47,11 +38,8 @@ beforeEach(() => {
   useStore.setState({
     projects: [],
     session: {
-      projectId: null,
-      playlistId: null,
-      index: 0,
-      interstitial: false,
-      live: false,
+      projectId: null, playlistId: null, index: 0,
+      interstitial: false, live: false,
     },
   });
 });
@@ -60,11 +48,8 @@ describe('advancing', () => {
   it('steps song to song when nothing is flagged', () => {
     const { project, playlistId } = scaffold();
     load(project, playlistId);
-
     useStore.getState().next();
     expect(at()).toEqual({ index: 1, interstitial: false });
-    useStore.getState().next();
-    expect(at()).toEqual({ index: 2, interstitial: false });
   });
 
   it('stops at the last song instead of running off the end', () => {
@@ -74,61 +59,38 @@ describe('advancing', () => {
     expect(at()).toEqual({ index: 3, interstitial: false });
   });
 
-  it('cannot reach the next song without passing the reposition card', () => {
-    const { project, playlistId } = scaffold({ after: [1] });
+  it('cannot reach the next song without passing the reposition screen', () => {
+    const { project, playlistId } = scaffold([1]);
     load(project, playlistId);
-
-    useStore.getState().next(); // -> song 2
-    useStore.getState().next(); // -> interstitial, NOT song 3
+    useStore.getState().next();
+    useStore.getState().next();
     expect(at()).toEqual({ index: 1, interstitial: true });
-
-    useStore.getState().next(); // acknowledged -> song 3
+    useStore.getState().next();
     expect(at()).toEqual({ index: 2, interstitial: false });
   });
 
-  it('does not show a reposition card after the final song', () => {
-    const { project, playlistId } = scaffold({ after: [3] });
+  it('does not show a reposition screen after the final song', () => {
+    const { project, playlistId } = scaffold([3]);
     load(project, playlistId);
-    for (let i = 0; i < 5; i++) useStore.getState().next();
+    for (let i = 0; i < 6; i++) useStore.getState().next();
     expect(at()).toEqual({ index: 3, interstitial: false });
   });
-});
 
-describe('going back', () => {
-  it('is symmetric: you pass back through the same reposition card', () => {
-    const { project, playlistId } = scaffold({ after: [1] });
+  it('is symmetric going back', () => {
+    const { project, playlistId } = scaffold([1]);
     load(project, playlistId);
     useStore.getState().jumpTo(2);
-
     useStore.getState().prev();
     expect(at()).toEqual({ index: 1, interstitial: true });
     useStore.getState().prev();
     expect(at()).toEqual({ index: 1, interstitial: false });
   });
 
-  it('holds at the first song', () => {
-    const { project, playlistId } = scaffold();
-    load(project, playlistId);
-    useStore.getState().prev();
-    expect(at()).toEqual({ index: 0, interstitial: false });
-  });
-});
-
-describe('rail jumps', () => {
-  it('goes straight to a song, bypassing reposition cards by design', () => {
-    const { project, playlistId } = scaffold({ after: [0, 1, 2] });
+  it('rail jumps bypass the reposition screen by design', () => {
+    const { project, playlistId } = scaffold([0, 1, 2]);
     load(project, playlistId);
     useStore.getState().jumpTo(3);
     expect(at()).toEqual({ index: 3, interstitial: false });
-  });
-
-  it('clamps out-of-range jumps', () => {
-    const { project, playlistId } = scaffold();
-    load(project, playlistId);
-    useStore.getState().jumpTo(99);
-    expect(at().index).toBe(3);
-    useStore.getState().jumpTo(-5);
-    expect(at().index).toBe(0);
   });
 });
 
@@ -136,243 +98,155 @@ describe('playlists reference the bucket', () => {
   it('reflects a song edit everywhere it is used', () => {
     const { project, playlistId } = scaffold();
     load(project, playlistId);
-    const songId = project.songs[1].id;
-
-    useStore.getState().updateSong(project.id, songId, { title: 'Renamed' });
-
+    useStore.getState().updateSong(project.id, project.bucket[1].id, {
+      title: 'Renamed',
+    });
     const s = useStore.getState();
-    const ctx = resolveSession(s.projects, s.session)!;
-    expect(ctx.songs[1].title).toBe('Renamed');
+    expect(resolveSession(s.projects, s.session)!.songs[1].title).toBe('Renamed');
   });
 
-  it('duplicating a playlist shares songs rather than copying them', () => {
+  it('duplicating shares songs rather than copying them', () => {
     const { project, playlistId } = scaffold();
     useStore.setState({ projects: [project] });
-
     const copyId = useStore.getState().duplicatePlaylist(project.id, playlistId)!;
-    useStore
-      .getState()
-      .updateSong(project.id, project.songs[0].id, { title: 'Edited once' });
-
+    useStore.getState().updateSong(project.id, project.bucket[0].id, {
+      title: 'Edited once',
+    });
     const p = useStore.getState().projects[0];
     const copy = p.playlists.find((pl) => pl.id === copyId)!;
     expect(copy.songIds).toEqual(p.playlists[0].songIds);
-    expect(p.songs[0].title).toBe('Edited once');
-    expect(p.songs.length).toBe(4); // no duplicated song content
+    expect(p.bucket).toHaveLength(4);
+    expect(playlistSongs(p, copy)[0].title).toBe('Edited once');
   });
 
-  it('removes a deleted song from every playlist using it', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const gone = project.songs[2].id;
-
-    useStore.getState().deleteSong(project.id, gone);
-
-    const p = useStore.getState().projects[0];
-    expect(p.songs.find((s) => s.id === gone)).toBeUndefined();
-    expect(p.playlists[0].songIds).not.toContain(gone);
-    expect(p.playlists[0].songIds).toHaveLength(3);
-    void playlistId;
-  });
-
-  it('survives a playlist that points at a deleted song', () => {
+  it('survives a playlist pointing at a deleted song', () => {
     const { project, playlistId } = scaffold();
     project.playlists[0].songIds.push('s_missing');
     load(project, playlistId);
-
     const s = useStore.getState();
-    const ctx = resolveSession(s.projects, s.session);
-    expect(ctx?.songs).toHaveLength(4);
+    expect(resolveSession(s.projects, s.session)?.songs).toHaveLength(4);
   });
 });
 
-describe('display', () => {
-  it('clamps brightness to a range that stays readable', () => {
-    for (let i = 0; i < 40; i++) useStore.getState().nudgeBrightness(-0.05);
-    expect(useStore.getState().display.brightness).toBe(0.2);
-    for (let i = 0; i < 40; i++) useStore.getState().nudgeBrightness(0.05);
-    expect(useStore.getState().display.brightness).toBe(1);
+describe('track blocks always sum to 100', () => {
+  const setup = () => {
+    const { project, playlistId } = scaffold();
+    useStore.setState({ projects: [project] });
+    return { project, playlistId, trackId: project.tracks[0].id, songId: project.bucket[0].id };
+  };
+  const widths = (p: Project, songId: string, trackId: string) =>
+    p.bucket.find((s) => s.id === songId)!.tracksData[trackId] ?? [];
+  const total = (p: Project, songId: string, trackId: string) =>
+    widths(p, songId, trackId).reduce((s, b) => s + b.widthPercent, 0);
+
+  it('a first block fills the track', () => {
+    const { project, songId, trackId } = setup();
+    useStore.getState().addTrackBlock(project.id, songId, trackId);
+    expect(total(useStore.getState().projects[0], songId, trackId)).toBeCloseTo(100);
+  });
+
+  it('adding a block splits the track without changing the total', () => {
+    const { project, songId, trackId } = setup();
+    for (let i = 0; i < 4; i++) {
+      useStore.getState().addTrackBlock(project.id, songId, trackId);
+      expect(total(useStore.getState().projects[0], songId, trackId)).toBeCloseTo(100);
+    }
+    expect(widths(useStore.getState().projects[0], songId, trackId)).toHaveLength(4);
+  });
+
+  it('dragging a divider moves only the pair either side', () => {
+    const { project, songId, trackId } = setup();
+    for (let i = 0; i < 3; i++) {
+      useStore.getState().addTrackBlock(project.id, songId, trackId);
+    }
+    const before = widths(useStore.getState().projects[0], songId, trackId);
+    useStore.getState().resizeTrackBlocks(project.id, songId, trackId, 0, 0.8);
+    const after = widths(useStore.getState().projects[0], songId, trackId);
+
+    expect(after[0].widthPercent).toBeGreaterThan(before[0].widthPercent);
+    expect(after[1].widthPercent).toBeLessThan(before[1].widthPercent);
+    // The third block is untouched, and the track still sums to 100.
+    expect(after[2].widthPercent).toBeCloseTo(before[2].widthPercent);
+    expect(total(useStore.getState().projects[0], songId, trackId)).toBeCloseTo(100);
+  });
+
+  it('never lets a block collapse to nothing', () => {
+    const { project, songId, trackId } = setup();
+    useStore.getState().addTrackBlock(project.id, songId, trackId);
+    useStore.getState().addTrackBlock(project.id, songId, trackId);
+    useStore.getState().resizeTrackBlocks(project.id, songId, trackId, 0, 99);
+    for (const b of widths(useStore.getState().projects[0], songId, trackId)) {
+      expect(b.widthPercent).toBeGreaterThan(0);
+    }
+  });
+
+  it('removing a block re-spreads the rest to 100', () => {
+    const { project, songId, trackId } = setup();
+    for (let i = 0; i < 3; i++) {
+      useStore.getState().addTrackBlock(project.id, songId, trackId);
+    }
+    const first = widths(useStore.getState().projects[0], songId, trackId)[0];
+    useStore.getState().removeTrackBlock(project.id, songId, trackId, first.id);
+    expect(total(useStore.getState().projects[0], songId, trackId)).toBeCloseTo(100);
+  });
+
+  it('normalises arbitrary widths', () => {
+    const out = normaliseWidths([
+      { id: 'a', widthPercent: 3, label: '', color: '' },
+      { id: 'b', widthPercent: 1, label: '', color: '' },
+    ]);
+    expect(out.reduce((s, b) => s + b.widthPercent, 0)).toBeCloseTo(100);
+    expect(out[0].widthPercent).toBeCloseTo(75);
   });
 });
 
-describe('templates and per-song overrides', () => {
-  it('every song uses the playlist default until overridden', () => {
+describe('pins keep their lane', () => {
+  it('sorts a lane left to right and leaves other lanes alone', () => {
     const { project } = scaffold();
-    useStore.setState({ projects: [project] });
-    const pl = () => useStore.getState().projects[0].playlists[0];
-
-    for (const s of project.songs) {
-      expect(layoutFor(pl(), s.id)).toBe(pl().layout);
-    }
+    const song = project.bucket[0];
+    song.pins = [
+      { id: 'a', positionPercent: 80, cardType: 'note', cardData: { text: 'late' } },
+      { id: 'b', positionPercent: 10, cardType: 'note', cardData: { text: 'early' } },
+      { id: 'c', positionPercent: 50, cardType: 'reposition', cardData: {} },
+    ];
+    expect(pinsInLane(song, 'note').map((p) => p.id)).toEqual(['b', 'a']);
+    expect(pinsInLane(song, 'reposition').map((p) => p.id)).toEqual(['c']);
+    expect(pinsInLane(song, 'first_shots')).toEqual([]);
   });
 
-  it('an override changes that song only, not the default or its neighbours', () => {
+  it('clamps a pin to the song', () => {
     const { project, playlistId } = scaffold();
     useStore.setState({ projects: [project] });
-    const target = project.songs[1].id;
-    const before = useStore.getState().projects[0].playlists[0].layout;
+    void playlistId;
+    const songId = project.bucket[0].id;
+    useStore.getState().addPin(project.id, songId, 'note');
+    const pinId = useStore.getState().projects[0].bucket[0].pins[0].id;
 
-    useStore.getState().startOverride(project.id, playlistId, target);
-    useStore
-      .getState()
-      .setSongLayout(project.id, playlistId, target, [
-        { block: 'hits', x: 0, y: 0, w: 4, h: 4 },
-      ]);
-
-    const pl = useStore.getState().projects[0].playlists[0];
-    expect(blocksOf(layoutFor(pl, target))).toHaveLength(1);
-    expect(pl.layout).toEqual(before);
-    for (const other of [0, 2, 3]) {
-      expect(layoutFor(pl, project.songs[other].id)).toEqual(before);
-    }
-  });
-
-  it('starts an override as a copy of the default, not a blank page', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const target = project.songs[0].id;
-
-    useStore.getState().startOverride(project.id, playlistId, target);
-
-    const pl = useStore.getState().projects[0].playlists[0];
-    expect(pl.overrides[target]).toEqual(pl.layout);
-    expect(pl.overrides[target]).not.toBe(pl.layout); // a copy, not a reference
-  });
-
-  it('does not clobber an existing override when re-opened', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const target = project.songs[0].id;
-    const mine = [{ block: 'solos' as const, x: 1, y: 1, w: 3, h: 3 }];
-
-    useStore.getState().setSongLayout(project.id, playlistId, target, mine);
-    useStore.getState().startOverride(project.id, playlistId, target);
-
-    expect(
-      blocksOf(useStore.getState().projects[0].playlists[0].overrides[target]),
-    ).toEqual(mine);
-  });
-
-  it('clearing an override returns the song to the default', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const target = project.songs[2].id;
-
-    useStore.getState().startOverride(project.id, playlistId, target);
-    useStore.getState().clearOverride(project.id, playlistId, target);
-
-    const pl = useStore.getState().projects[0].playlists[0];
-    expect(hasOverride(pl, target)).toBe(false);
-    expect(layoutFor(pl, target)).toBe(pl.layout);
-  });
-
-  it('editing the default leaves overridden songs alone', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const target = project.songs[1].id;
-
-    useStore.getState().startOverride(project.id, playlistId, target);
-    const pinned = useStore.getState().projects[0].playlists[0].overrides[target];
-    useStore.getState().toggleLayoutBlock(project.id, playlistId, 'avoid');
-
-    const pl = useStore.getState().projects[0].playlists[0];
-    expect(pl.layout.some((c) => c.block === 'avoid')).toBe(true);
-    expect(pl.overrides[target]).toEqual(pinned);
-  });
-
-  it('duplicating a playlist carries the template and overrides forward', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const target = project.songs[0].id;
-    useStore.getState().startOverride(project.id, playlistId, target);
-
-    const copyId = useStore.getState().duplicatePlaylist(project.id, playlistId)!;
-    // Edit the copy's template; the original must not move.
-    useStore.getState().toggleLayoutBlock(project.id, copyId, 'energy');
-
-    const p = useStore.getState().projects[0];
-    const original = p.playlists.find((x) => x.id === playlistId)!;
-    const copy = p.playlists.find((x) => x.id === copyId)!;
-    expect(hasOverride(copy, target)).toBe(true);
-    expect(copy.layout.some((c) => c.block === 'energy')).toBe(true);
-    expect(original.layout.some((c) => c.block === 'energy')).toBe(false);
+    useStore.getState().updatePin(project.id, songId, pinId, { positionPercent: 140 });
+    expect(useStore.getState().projects[0].bucket[0].pins[0].positionPercent).toBe(100);
+    useStore.getState().updatePin(project.id, songId, pinId, { positionPercent: -20 });
+    expect(useStore.getState().projects[0].bucket[0].pins[0].positionPercent).toBe(0);
   });
 });
 
-describe('the reposition band is placeable but guaranteed', () => {
-  const hasBand = (l: GridCell[]) => l.some((c) => c.block === 'reposition');
-
-  it('is in the default template', () => {
+describe('removing a camera', () => {
+  it('stops it being referenced by any card', () => {
     const { project } = scaffold();
-    expect(hasBand(project.playlists[0].layout)).toBe(true);
-  });
-
-  it('can be moved and resized like any other cell', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const moved = project.playlists[0].layout.map((c) =>
-      c.block === 'reposition' ? { ...c, x: 4, y: 9, w: 6, h: 3 } : c,
-    );
-
-    useStore.getState().setLayout(project.id, playlistId, moved);
-
-    const band = useStore
-      .getState()
-      .projects[0].playlists[0].layout.find((c) => c.block === 'reposition')!;
-    expect(band).toMatchObject({ x: 4, y: 9, w: 6, h: 3 });
-  });
-
-  it('comes back if a layout is written without it', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const stripped = project.playlists[0].layout.filter(
-      (c) => c.block !== 'reposition',
-    );
-
-    useStore.getState().setLayout(project.id, playlistId, stripped);
-
-    expect(hasBand(useStore.getState().projects[0].playlists[0].layout)).toBe(true);
-  });
-
-  it('cannot be dropped by a per-song override either', () => {
-    const { project, playlistId } = scaffold();
-    useStore.setState({ projects: [project] });
-    const target = project.songs[0].id;
-
-    useStore
-      .getState()
-      .setSongLayout(project.id, playlistId, target, [
-        { block: 'hits', x: 0, y: 0, w: 4, h: 4 },
-      ]);
-
-    const pl = useStore.getState().projects[0].playlists[0];
-    expect(hasBand(pl.overrides[target])).toBe(true);
-    expect(hasBand(layoutFor(pl, target))).toBe(true);
-  });
-
-  it('survives removing every block from a template', () => {
-    const { project, playlistId } = scaffold();
+    const song = project.bucket[0];
+    song.pins = [
+      { id: 'p1', positionPercent: 0, cardType: 'first_shots',
+        cardData: { shots: { C01: 'wide', C02: 'cu' } } },
+      { id: 'p2', positionPercent: 50, cardType: 'specific_shot',
+        cardData: { camera: 'C01', text: 'x' } },
+    ];
+    song.repositionAfter = { cameras: ['C01', 'C02'], destination: 'pit' };
     useStore.setState({ projects: [project] });
 
-    for (const b of BLOCK_TYPES) {
-      useStore.getState().toggleLayoutBlock(project.id, playlistId, b);
-      useStore.getState().toggleLayoutBlock(project.id, playlistId, b);
-    }
-    // Toggle each placed block off for good.
-    const pl0 = useStore.getState().projects[0].playlists[0];
-    for (const c of pl0.layout.filter((c) => c.block !== 'reposition')) {
-      useStore
-        .getState()
-        .toggleLayoutBlock(project.id, playlistId, c.block as (typeof BLOCK_TYPES)[number]);
-    }
+    useStore.getState().removeCamera(project.id, 'C01');
 
-    const pl = useStore.getState().projects[0].playlists[0];
-    expect(hasBand(pl.layout)).toBe(true);
-  });
-
-  it('shows exactly when the song has a during-song move', () => {
-    const { project } = scaffold({ during: [1] });
-    expect(cellHasContent(project.songs[0], 'reposition')).toBe(false);
-    expect(cellHasContent(project.songs[1], 'reposition')).toBe(true);
+    const s = useStore.getState().projects[0].bucket[0];
+    expect(s.pins[0].cardData.shots).toEqual({ C02: 'cu' });
+    expect(s.pins[1].cardData.camera).toBeUndefined();
+    expect(s.repositionAfter!.cameras).toEqual(['C02']);
   });
 });

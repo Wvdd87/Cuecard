@@ -1,54 +1,63 @@
 import type {
-  BlockRow,
-  GridCell,
+  CameraDefinition,
+  MilestonePin,
   Playlist,
   Project,
-  ScreenRow,
   Song,
-  SongBlocks,
+  TrackBlock,
+  TrackDefinition,
 } from './types';
 import { uid, today } from './util';
 
 /**
- * The template a new playlist starts from: the blocks most shows need, in
- * scan order. Everything else in the library is one click away in the editor.
- * Grid is 16 x 12.
+ * The eight camera hues the design system reserves for cameras. A camera is
+ * locked to one of these on creation and keeps it everywhere it appears, so
+ * it is recognisable by colour without reading the number.
  */
-export const DEFAULT_LAYOUT: GridCell[] = [
-  // The reposition band leads, where the fixed strip used to sit. It can be
-  // moved and resized from here, but never removed.
-  { block: 'reposition', x: 0, y: 0, w: 16, h: 2 },
-  { block: 'presets', x: 0, y: 2, w: 8, h: 5 },
-  { block: 'firstShots', x: 8, y: 2, w: 8, h: 5 },
-  { block: 'camScreen', x: 0, y: 7, w: 8, h: 3 },
-  { block: 'instruments', x: 8, y: 7, w: 8, h: 3 },
-  { block: 'intro', x: 0, y: 10, w: 8, h: 2 },
-  { block: 'ending', x: 8, y: 10, w: 8, h: 2 },
+export const CAMERA_COLORS = [
+  'var(--cam1)',
+  'var(--cam2)',
+  'var(--cam3)',
+  'var(--cam4)',
+  'var(--cam5)',
+  'var(--cam6)',
+  'var(--cam7)',
+  'var(--cam8)',
 ];
 
-export function emptyBlocks(): SongBlocks {
+/** Track content colours — a separate system from cameras. See tracks.css. */
+export const TRACK_COLORS = [
+  'var(--trk1)',
+  'var(--trk2)',
+  'var(--trk3)',
+  'var(--trk4)',
+  'var(--trk5)',
+  'var(--trk6)',
+  'var(--trk7)',
+  'var(--trk8)',
+];
+
+export const BLACK_COLOR = 'var(--trk-black)';
+
+export function newCamera(index: number): CameraDefinition {
+  const n = index + 1;
   return {
-    presets: [],
-    firstShots: [],
-    camScreen: [],
-    instruments: [],
-    solos: [],
-    hits: [],
-    intro: '',
-    ending: '',
-    energy: '',
-    avoid: '',
-    note: '',
+    id: `C${String(n).padStart(2, '0')}`,
+    label: `Cam ${n}`,
+    badgeColor: CAMERA_COLORS[index % CAMERA_COLORS.length],
   };
+}
+
+export function newTrack(name = 'New screen'): TrackDefinition {
+  return { id: uid('t_'), name, recommendedBlocks: [] };
 }
 
 export function newSong(title = ''): Song {
   return {
     id: uid('s_'),
     title,
-    blocks: emptyBlocks(),
-    repositionDuring: '',
-    repositionAfter: '',
+    pins: [],
+    tracksData: {},
     hasImage: false,
     updatedAt: Date.now(),
   };
@@ -60,8 +69,6 @@ export function newPlaylist(name: string): Playlist {
     name: name.trim() || 'Untitled show',
     date: today(),
     songIds: [],
-    layout: DEFAULT_LAYOUT.map((c) => ({ ...c })),
-    overrides: {},
     createdAt: Date.now(),
   };
 }
@@ -70,95 +77,130 @@ export function newProject(name: string): Project {
   return {
     id: uid('p_'),
     name,
-    songs: [],
+    // A show starts with a workable camera list and two screens; both are
+    // editable at project level and identical across every song.
+    cameras: [0, 1, 2, 3].map(newCamera),
+    tracks: [newTrack('Center Screen'), newTrack('Side IMAG')],
+    bucket: [],
     playlists: [],
     createdAt: Date.now(),
   };
 }
 
-function row(a: string, b: string, c = ''): BlockRow {
-  return { id: uid(), a, b, c };
+/* -------------------------------------------------------------------------- */
+
+function block(
+  label: string,
+  color: string,
+  widthPercent: number,
+  extra: Partial<TrackBlock> = {},
+): TrackBlock {
+  return { id: uid('b_'), label, color, widthPercent, ...extra };
 }
 
-/** A screen and the sources that feed it, in order across the song. */
-function screen(name: string, ...sources: string[]): ScreenRow {
-  return {
-    id: uid(),
-    screen: name,
-    segments: sources.map((source) => ({ id: uid(), source, span: 1 })),
-  };
+function pin(
+  positionPercent: number,
+  cardType: MilestonePin['cardType'],
+  cardData: MilestonePin['cardData'],
+): MilestonePin {
+  return { id: uid('pin_'), positionPercent, cardType, cardData };
 }
 
 /**
- * A small worked example so a new install shows the shape of the thing
- * instead of an empty screen. Deletable like any other project.
+ * A worked example so a new install shows the shape of the thing instead of
+ * an empty screen. Deletable like any other project.
  */
 export function demoProject(): Project {
   const p = newProject('Demo — The Wire');
+  const [center, imag] = p.tracks;
 
-  const song1 = newSong('Coastline');
-  song1.blocks.presets = [row('1', 'P2', 'wide'), row('2', 'P1'), row('4', 'P7', 'lock')];
-  song1.blocks.firstShots = [
-    row('1', 'WIDE STAGE'),
-    row('2', 'MCU VOX'),
-    row('3', 'CU HANDS KEYS'),
-    row('4', 'CRANE HIGH'),
+  center.recommendedBlocks = [
+    { id: uid(), label: 'IMAG', color: TRACK_COLORS[0], aspectRatio: 'full' },
+    { id: uid(), label: 'Content', color: TRACK_COLORS[1], aspectRatio: '16:9' },
+    { id: uid(), label: 'Black', color: BLACK_COLOR, aspectRatio: 'black' },
   ];
-  song1.blocks.camScreen = [
-    // The left screen cuts between two cameras across the song; the right one
-    // mirrors the programme bus the whole way through.
-    screen('LED L', '4', '3', '4'),
-    screen('CENTRE', '2'),
-    screen('LED R', 'PGM'),
+  imag.recommendedBlocks = [
+    { id: uid(), label: 'IMAG', color: TRACK_COLORS[0], aspectRatio: 'full' },
+    { id: uid(), label: 'Scenic', color: TRACK_COLORS[2], aspectRatio: '2.35:1' },
   ];
-  song1.blocks.instruments = ['VOX', 'KEYS L'];
-  song1.blocks.intro = 'Cold open, keys only';
-  song1.blocks.ending = 'Hard stop on the downbeat';
-  song1.blocks.avoid = 'No cuts in verse 1';
 
-  const song2 = newSong('Halogen');
-  song2.blocks.presets = [row('1', 'P4'), row('3', 'P2', 'tight')];
-  song2.blocks.firstShots = [row('1', 'MS BAND'), row('2', 'CU VOX'), row('3', 'MS GTR SL')];
-  song2.blocks.instruments = ['SOLO GTR', 'DRUMS'];
-  song2.blocks.solos = ['GTR 2', 'KEYS'];
-  song2.blocks.hits = ['2x STAB PRE-CH', 'STOP @ BRIDGE'];
-  song2.blocks.energy = 'Slow build → drop';
-  song2.blocks.ending = 'Fades out, hold wide';
-  song2.repositionDuring = 'CAM 3 → downstage right, after 2nd chorus';
+  const s1 = newSong('Coastline');
+  s1.pins = [
+    pin(0, 'first_shots', {
+      shots: {
+        C01: 'Wide stage',
+        C02: 'MCU vox',
+        C03: 'CU hands keys',
+        C04: 'Crane high',
+      },
+    }),
+    pin(34, 'specific_shot', { camera: 'C03', text: 'Keys solo — stay wide' }),
+    pin(62, 'note', { text: 'No cuts through the bridge' }),
+  ];
+  s1.tracksData = {
+    [center.id]: [
+      block('Black', BLACK_COLOR, 12, { aspectRatio: 'black' }),
+      block('Content', TRACK_COLORS[1], 48, { aspectRatio: '16:9' }),
+      block('IMAG', TRACK_COLORS[0], 40, { aspectRatio: 'full' }),
+    ],
+    [imag.id]: [block('IMAG', TRACK_COLORS[0], 100, { aspectRatio: 'full' })],
+  };
 
-  const song3 = newSong('Ten Thousand Rooms');
-  song3.blocks.presets = [row('2', 'P6'), row('4', 'P3')];
-  song3.blocks.firstShots = [row('1', 'WIDE'), row('2', 'CU VOX'), row('4', 'JIB SWEEP')];
-  song3.blocks.camScreen = [screen('ALL', 'ME1', '2')];
-  song3.blocks.instruments = ['VOX', 'STRINGS'];
-  song3.blocks.intro = 'Strings pad, 8 bars';
-  song3.blocks.ending = 'Ritardando, long hold';
-  song3.repositionAfter = 'CAM 3 + CAM 4 → pit, both handheld. Confirm on comms.';
+  const s2 = newSong('Halogen');
+  s2.pins = [
+    pin(0, 'first_shots', {
+      shots: { C01: 'MS band', C02: 'CU vox', C03: 'MS gtr SL' },
+    }),
+    pin(28, 'specific_shot', { camera: 'C02', text: 'Catch the stab' }),
+    pin(55, 'reposition', { camera: 'C03', destination: 'Downstage right' }),
+    pin(80, 'note', { text: 'Crowd on the drop' }),
+  ];
+  s2.tracksData = {
+    [center.id]: [
+      block('IMAG', TRACK_COLORS[0], 55, { aspectRatio: 'full' }),
+      block('Content', TRACK_COLORS[1], 45, { aspectRatio: '16:9' }),
+    ],
+    [imag.id]: [
+      block('Scenic', TRACK_COLORS[2], 30, { aspectRatio: '2.35:1' }),
+      block('IMAG', TRACK_COLORS[0], 70, { aspectRatio: 'full' }),
+    ],
+  };
 
-  const song4 = newSong('Static Bloom');
-  song4.blocks.firstShots = [row('1', 'WIDE'), row('3', 'HH PIT LOW'), row('4', 'HH PIT ROAM')];
-  song4.blocks.instruments = ['CROWD', 'VOX'];
-  song4.blocks.hits = ['DROP @ 2:10'];
-  song4.blocks.energy = 'Flat out from bar 1';
-  song4.blocks.note = 'Crowd shots on the drop';
-  song4.blocks.ending = 'Cuts dead — be on wide';
+  const s3 = newSong('Ten Thousand Rooms');
+  s3.pins = [
+    pin(0, 'first_shots', {
+      shots: { C01: 'Wide', C02: 'CU vox', C04: 'Jib sweep' },
+    }),
+    pin(48, 'note', { text: 'Strings enter — hold the wide' }),
+  ];
+  s3.tracksData = {
+    [center.id]: [block('Content', TRACK_COLORS[1], 100, { aspectRatio: '16:9' })],
+    [imag.id]: [
+      block('IMAG', TRACK_COLORS[0], 60, { aspectRatio: 'full' }),
+      block('Black', BLACK_COLOR, 40, { aspectRatio: 'black' }),
+    ],
+  };
+  s3.repositionAfter = {
+    cameras: ['C03', 'C04'],
+    destination: 'Pit — both handheld. Confirm on comms.',
+  };
 
-  p.songs = [song1, song2, song3, song4];
+  const s4 = newSong('Static Bloom');
+  s4.pins = [
+    pin(0, 'first_shots', {
+      shots: { C01: 'Wide', C03: 'HH pit low', C04: 'HH pit roam' },
+    }),
+    pin(70, 'specific_shot', { camera: 'C04', text: 'Crowd, wide roam' }),
+  ];
+  s4.tracksData = {
+    [center.id]: [block('IMAG', TRACK_COLORS[0], 100, { aspectRatio: 'full' })],
+    [imag.id]: [block('IMAG', TRACK_COLORS[0], 100, { aspectRatio: 'full' })],
+  };
+
+  p.bucket = [s1, s2, s3, s4];
 
   const show = newPlaylist('Show A');
-  show.songIds = p.songs.map((s) => s.id);
-  // Halogen carries more content than the default template holds comfortably,
-  // so it ships with an override — the feature, demonstrated.
-  show.overrides[song2.id] = [
-    { block: 'reposition', x: 0, y: 0, w: 16, h: 2 },
-    { block: 'presets', x: 0, y: 2, w: 6, h: 4 },
-    { block: 'firstShots', x: 6, y: 2, w: 10, h: 4 },
-    { block: 'solos', x: 0, y: 6, w: 6, h: 3 },
-    { block: 'hits', x: 6, y: 6, w: 10, h: 3 },
-    { block: 'instruments', x: 0, y: 9, w: 6, h: 3 },
-    { block: 'energy', x: 6, y: 9, w: 5, h: 3 },
-    { block: 'ending', x: 11, y: 9, w: 5, h: 3 },
-  ];
+  show.songIds = p.bucket.map((s) => s.id);
   p.playlists = [show];
 
   return p;
